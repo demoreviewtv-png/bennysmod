@@ -34,8 +34,15 @@
         }
         .room-list-container {
             flex: 1; overflow-y: auto; background: #111; border: 1px solid #333;
-            border-radius: 6px; padding: 5px; margin-top: 10px;
+            border-radius: 6px; padding: 10px; margin-top: 10px; display: flex; flex-direction: column; gap: 8px;
         }
+        .room-item {
+            background: #222; padding: 8px 12px; border-radius: 4px; border: 1px solid #444;
+            display: flex; justify-content: space-between; align-items: center; font-size: 14px;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .room-item:hover { background: #333; border-color: #666; }
+        .room-pop { font-size: 11px; background: #21a03c; padding: 2px 6px; border-radius: 10px; font-weight: bold; }
         
         .menu-box label { font-size: 13px; color: #aaa; font-weight: 500; }
         .menu-box input, .menu-box select, .menu-box button { padding: 10px; border-radius: 6px; border: none; font-size: 15px; }
@@ -56,6 +63,7 @@
         .spawn-btn.food { background: #d47a22; }
         .spawn-btn.utility { background: #8e44ad; }
         .spawn-btn.appliance { background: #e67e22; }
+        .spawn-btn.vehicle { background: #c0392b; }
         .admin-btn { padding: 10px; background: #b83232; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
         
         #player-list-panel {
@@ -85,7 +93,7 @@
     <div id="start-screen">
         <div class="menu-box">
             <h2>Benny's Mod Sandbox</h2>
-            <div class="update-pill">LOCAL PERSISTENCE FIX</div>
+            <div class="update-pill">VEHICLES & RAMPS CORE RUNNING</div>
             
             <label>Username</label>
             <input type="text" id="username-input">
@@ -139,12 +147,19 @@
     <div id="spawn-menu">
         <h3>Sandbox Control Panel</h3>
         <div class="menu-section">
-            <h4>Basic Geometric Props</h4>
+            <h4>Basic Geometric Props & Architecture</h4>
             <div class="grid">
                 <button class="spawn-btn active" onclick="selectProp('cube', this)">Cube</button>
                 <button class="spawn-btn" onclick="selectProp('sphere', this)">Sphere</button>
-                <button class="spawn-btn" onclick="selectProp('cylinder', this)">Cylinder</button>
+                <button class="spawn-btn utility" onclick="selectProp('ramp', this)">📐 Stunt Ramp</button>
                 <button class="spawn-btn" onclick="selectProp('torus', this)">Donut</button>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <h4>Vehicles & Heavy Rig Props</h4>
+            <div class="grid">
+                <button class="spawn-btn vehicle" style="grid-column: span 4;" onclick="selectProp('car', this)">🚗 Muscle Sedan Chassis</button>
             </div>
         </div>
 
@@ -218,7 +233,6 @@
 
         const startBtn = document.getElementById('start-btn');
         
-        // FIXED PERSISTENCE ENGINE: Check if username and design are already cached in storage
         if (localStorage.getItem('bennysmod_username')) {
             document.getElementById('username-input').value = localStorage.getItem('bennysmod_username');
         } else {
@@ -229,7 +243,42 @@
             document.getElementById('avatar-input').value = localStorage.getItem('bennysmod_avatar');
         }
 
-        playerId = Math.random().toString(36).substring(2, 9);
+        if (localStorage.getItem('bennysmod_playerid')) {
+            playerId = localStorage.getItem('bennysmod_playerid');
+        } else {
+            playerId = Math.random().toString(36).substring(2, 9);
+            localStorage.setItem('bennysmod_playerid', playerId);
+        }
+
+        onValue(ref(db, 'rooms'), (snapshot) => {
+            const roomsListContainer = document.getElementById('public-rooms-list');
+            const data = snapshot.val();
+            
+            if (!data) {
+                roomsListContainer.innerHTML = '<div class="no-rooms">No active rooms found. Create one!</div>';
+                return;
+            }
+            
+            roomsListContainer.innerHTML = '';
+            Object.keys(data).forEach(rId => {
+                const roomData = data[rId];
+                if (roomData.visibility === 'private') return; 
+                
+                const playersCount = roomData.players ? Object.keys(roomData.players).length : 0;
+                
+                const item = document.createElement('div');
+                item.className = 'room-item';
+                item.innerHTML = `<span>🚪 ${rId}</span> <span class="room-pop">${playersCount} online</span>`;
+                item.addEventListener('click', () => {
+                    document.getElementById('room-input').value = rId;
+                });
+                roomsListContainer.appendChild(item);
+            });
+
+            if(roomsListContainer.innerHTML === '') {
+                roomsListContainer.innerHTML = '<div class="no-rooms">All rooms are private.</div>';
+            }
+        });
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x1a1a24);
@@ -282,7 +331,7 @@
         const props = {}, networkPlayers = {};
         let currentPropType = 'cube';
         
-        let grabbedObj = null, grabDistance = 5;
+        let grabbedObj = null, grabDistance = 6;
         let lastGrabbedPos = new CANNON.Vec3();
         let grabbedVelocity = new CANNON.Vec3();
         const raycaster = new THREE.Raycaster();
@@ -327,8 +376,8 @@
             username = document.getElementById('username-input').value.trim() || "Player";
             avatarColor = document.getElementById('avatar-input').value;
             roomId = document.getElementById('room-input').value.trim().toLowerCase() || "global";
+            const roomVisibility = document.getElementById('visibility-input').value;
 
-            // SAVE ENGINE HOOKS: Store username variables persistently inside browser cache
             localStorage.setItem('bennysmod_username', username);
             localStorage.setItem('bennysmod_avatar', avatarColor);
 
@@ -336,6 +385,8 @@
             playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
             propsRef = ref(db, `rooms/${roomId}/props`);
             adminRef = ref(db, `rooms/${roomId}/admin`);
+
+            update(roomRef, { visibility: roomVisibility });
 
             onDisconnect(playerRef).remove();
             setupMultiplayerListeners();
@@ -430,6 +481,8 @@
         function createLocalProp(id, val) {
             if (props[id]) return;
             let mesh = new THREE.Group(), shape;
+            let mass = 5;
+            let startRotation = new CANNON.Quaternion();
             
             if (val.type === 'frisbee') {
                 mesh.add(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16), new THREE.MeshStandardMaterial({ color: 0xff3366 })));
@@ -452,13 +505,45 @@
                 glassMesh.position.set(-0.1, 0, 0.41);
                 mesh.add(bodyMesh, screenMesh, glassMesh);
                 shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.4, 0.4));
-            } else if (val.type === 'youtube') {
-                const width = 3.2;
-                const height = 1.8;
+            } else if (val.type === 'ramp') {
+                // FIXED STATIC RAMP: Solid structural blueprint configuration
+                mass = 0; 
+                const rampWidth = 4.0, rampHeight = 1.5, rampLength = 5.0;
                 
-                const planeGeom = new THREE.PlaneGeometry(width, height);
-                const planeMat = new THREE.MeshStandardMaterial({ color: 0x000000, side: THREE.DoubleSide, roughness: 0.4 });
-                const backingMesh = new THREE.Mesh(planeGeom, planeMat);
+                const rampGeom = new THREE.BoxGeometry(rampWidth, rampHeight, rampLength);
+                const rampMat = new THREE.MeshStandardMaterial({ color: 0x34495e, roughness: 0.7 });
+                const rampMesh = new THREE.Mesh(rampGeom, rampMat);
+                mesh.add(rampMesh);
+                
+                shape = new CANNON.Box(new CANNON.Vec3(rampWidth / 2, rampHeight / 2, rampLength / 2));
+                // Set the ramp at an angle
+                startRotation.setFromEuler(-0.35, 0, 0); 
+            } else if (val.type === 'car') {
+                // INTERACTIVE VEHICLE SYSTEM: Dynamic mechanical chassis assembly
+                mass = 45;
+                const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 4), new THREE.MeshStandardMaterial({ color: 0xd35400 }));
+                const cabinMesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 2), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+                cabinMesh.position.set(0, 0.55, -0.2);
+                mesh.add(bodyMesh, cabinMesh);
+
+                // Attach procedural styling nodes for visual wheels mapping
+                const wheelGeom = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 12);
+                const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+                const wheelOffsets = [
+                    {x: 1.05, y: -0.2, z: 1.3}, {x: -1.05, y: -0.2, z: 1.3},
+                    {x: 1.05, y: -0.2, z: -1.3}, {x: -1.05, y: -0.2, z: -1.3}
+                ];
+                wheelOffsets.forEach(offset => {
+                    const w = new THREE.Mesh(wheelGeom, wheelMat);
+                    w.rotation.z = Math.PI / 2;
+                    w.position.set(offset.x, offset.y, offset.z);
+                    mesh.add(w);
+                });
+
+                shape = new CANNON.Box(new CANNON.Vec3(1.1, 0.5, 2));
+            } else if (val.type === 'youtube') {
+                const width = 3.2; const height = 1.8;
+                const backingMesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshStandardMaterial({ color: 0x000000, side: THREE.DoubleSide }));
                 mesh.add(backingMesh);
 
                 const frameElement = document.createElement('div');
@@ -466,10 +551,8 @@
                 frameElement.innerHTML = `<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" allowfullscreen></iframe>`;
                 
                 const object3d = new CSS3DObject(frameElement);
-                object3d.scale.set(0.005, 0.005, 0.005); 
-                object3d.position.z = 0.01; 
+                object3d.scale.set(0.005, 0.005, 0.005); object3d.position.z = 0.01; 
                 mesh.add(object3d);
-                
                 shape = new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, 0.05));
             } else {
                 mesh.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x2a67bc })));
@@ -479,10 +562,17 @@
             mesh.position.set(val.x, val.y, val.z);
             scene.add(mesh);
             
-            const body = new CANNON.Body({ mass: 5, shape: shape });
+            const body = new CANNON.Body({ mass: mass, shape: shape });
             body.position.set(val.x, val.y, val.z);
-            world.addBody(body);
+            body.quaternion.copy(startRotation);
             
+            // Apply higher damping variables on vehicles to remove structural slide lag
+            if(val.type === 'car') {
+                body.linearDamping = 0.15;
+                body.angularDamping = 0.3;
+            }
+            
+            world.addBody(body);
             props[id] = { id, mesh, body, type: val.type };
         }
 
@@ -494,9 +584,9 @@
                 lastSpawnTime = now;
 
                 const targetPos = new THREE.Vector3();
-                camera.getWorldDirection(targetPos).multiplyScalar(4).add(camera.position);
+                camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
                 const newId = Math.random().toString(36).substring(2, 9);
-                set(ref(db, `rooms/${roomId}/props/${newId}`), { type: currentPropType, x: targetPos.x, y: targetPos.y, z: targetPos.z });
+                set(ref(db, `rooms/${roomId}/props/${newId}`), { type: currentPropType, x: targetPos.x, y: targetPos.y + 1, z: targetPos.z });
             }
             if (e.button === 2) { 
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
@@ -506,10 +596,14 @@
                     let hit = intersects[0].object;
                     while (hit.parent && hit.parent.type !== "Scene") { hit = hit.parent; }
                     grabbedObj = Object.values(props).find(p => p.mesh === hit);
-                    if (grabbedObj) {
+                    
+                    // Do not drag immovable static assets like the ramp blueprints
+                    if (grabbedObj && grabbedObj.body.mass > 0) {
                         grabbedObj.body.mass = 0;
                         grabbedObj.body.updateMassProperties();
                         lastGrabbedPos.copy(grabbedObj.body.position);
+                    } else {
+                        grabbedObj = null;
                     }
                 }
             }
@@ -517,10 +611,11 @@
 
         window.addEventListener('mouseup', (e) => {
             if (e.button === 2 && grabbedObj) {
-                grabbedObj.body.mass = 5;
+                // Restore weight configuration metrics based on type signature
+                grabbedObj.body.mass = (grabbedObj.type === 'car') ? 45 : 5;
                 grabbedObj.body.updateMassProperties();
                 
-                grabbedObj.body.velocity.copy(grabbedVelocity).scale(1.6); 
+                grabbedObj.body.velocity.copy(grabbedVelocity).scale(1.7); 
                 grabbedObj = null;
             }
         });
