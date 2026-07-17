@@ -240,7 +240,7 @@
         • Press <strong>G</strong> to toggle <strong>Fly / Noclip Mode</strong><br>
         • Hold <strong>Q</strong> to open Spawn Menu & Options<br>
         • Left-Click to spawn selected prop<br>
-        • Right-Click & Hold to <strong>Grab Objects</strong><br>
+        • Right-Click & Hold to <strong>Grab Objects / Other Players</strong><br>
         • Release Right-Click while flicking to <strong>Throw (GMod Style)</strong>
     </div>
 
@@ -361,7 +361,7 @@
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false, isFlying = false;
         const inputDirection = new THREE.Vector3();
         const raycaster = new THREE.Raycaster();
-        let grabbedObj = null, grabDistance = 0;
+        let grabbedObj = null, grabDistance = 0, grabIsPlayer = false, grabbedPlayerId = null;
         const props = {}, networkPlayers = {};
 
         let currentPropType = 'cube';
@@ -491,32 +491,53 @@
                     if (!networkPlayers[id]) {
                         const group = new THREE.Group();
                         
-                        const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: data[id].color || 0xff0000 }));
-                        bodyMesh.position.y = 0.6;
+                        // Torso
+                        const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.0, 10), new THREE.MeshStandardMaterial({ color: data[id].color || 0xff0000 }));
+                        bodyMesh.position.y = 0.9;
                         group.add(bodyMesh);
 
-                        const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 12), new THREE.MeshStandardMaterial({ color: 0xffeecc }));
-                        headMesh.position.y = 1.4;
-                        group.add(headMesh);
+                        // Legs Construction
+                        const legMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+                        const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.6, 6), legMat);
+                        leftLeg.position.set(-0.18, 0.3, 0);
+                        const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.6, 6), legMat);
+                        rightLeg.position.set(0.18, 0.3, 0);
+                        group.add(leftLeg, rightLeg);
+
+                        // Upgraded Advanced Head Variant with a Visor Face Component
+                        const headGroup = new THREE.Group();
+                        const headBase = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 14), new THREE.MeshStandardMaterial({ color: 0xffeecc }));
+                        headGroup.add(headBase);
+
+                        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.1, 0.2), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, roughness: 0.1 }));
+                        visor.position.set(0, 0.05, 0.22);
+                        headGroup.add(visor);
+                        
+                        headGroup.position.y = 1.6;
+                        group.add(headGroup);
                         
                         const nameDiv = document.createElement('div');
                         nameDiv.className = 'username-tag';
                         nameDiv.innerHTML = `${userStr} <span class="admin-tag">${data[id].isAdminStatus ? 'ADMIN' : ''}</span>`;
                         const nameLabel = new CSS2DObject(nameDiv);
-                        nameLabel.position.set(0, 2.0, 0); 
+                        nameLabel.position.set(0, 2.3, 0); 
                         group.add(nameLabel);
 
-                        networkPlayers[id] = { group, head: headMesh, body: bodyMesh };
-                        networkPlayers[id].group.userData = { networkId: id };
+                        networkPlayers[id] = { group, head: headGroup, body: bodyMesh };
+                        networkPlayers[id].group.userData = { isPlayer: true, networkId: id };
                         scene.add(networkPlayers[id].group);
                     }
 
-                    networkPlayers[id].group.position.set(data[id].x, data[id].y - 0.9, data[id].z);
+                    // Only update positioning locally if this player isn't currently grabbed by us
+                    if (!(grabIsPlayer && grabbedPlayerId === id)) {
+                        networkPlayers[id].group.position.set(data[id].x, data[id].y - 0.9, data[id].z);
+                    }
+                    
                     if (data[id].dirX !== undefined) {
                         const lookTarget = new THREE.Vector3(
-                            data[id].x + data[id].dirX * 5,
-                            data[id].y + data[id].dirY * 5,
-                            data[id].z + data[id].dirZ * 5
+                            networkPlayers[id].group.position.x + data[id].dirX * 5,
+                            networkPlayers[id].group.position.y + 1.6 + data[id].dirY * 5,
+                            networkPlayers[id].group.position.z + data[id].dirZ * 5
                         );
                         networkPlayers[id].head.lookAt(lookTarget);
                     }
@@ -554,14 +575,14 @@
             if (e.code === 'KeyD') moveRight = true;
             if (e.code === 'Space') {
                 if (isFlying) {
-                    playerBody.velocity.y = 12.0; // Fly Up
+                    playerBody.velocity.y = 12.0;
                 } else if (canJump) { 
                     playerBody.velocity.y = 9.5; 
                     canJump = false; 
                 }
             }
             if (e.code === 'KeyC' && isFlying) {
-                playerBody.velocity.y = -12.0; // Fly Down
+                playerBody.velocity.y = -12.0;
             }
             if (e.code === 'KeyG') {
                 isFlying = !isFlying;
@@ -651,20 +672,36 @@
             }
             if (e.button === 2) { 
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
+                
+                // Targets array now includes both objects and network player meshes
                 const targets = [];
                 Object.values(props).forEach(p => targets.push(p.mesh));
+                Object.values(networkPlayers).forEach(p => targets.push(p.group));
+
                 const intersects = raycaster.intersectObjects(targets, true);
                 if (intersects.length > 0) {
                     let hitObject = intersects[0].object;
                     grabDistance = intersects[0].distance;
-                    while(hitObject.parent && !targets.includes(hitObject) && hitObject.parent.type !== "Scene") { hitObject = hitObject.parent; }
+                    
+                    while(hitObject.parent && !targets.includes(hitObject) && hitObject.parent.type !== "Scene") { 
+                        hitObject = hitObject.parent; 
+                    }
+                    
                     if (targets.includes(hitObject)) {
                         const foundProp = Object.values(props).find(p => p.mesh === hitObject);
                         if(foundProp) { 
                             grabbedObj = foundProp; 
+                            grabIsPlayer = false;
                             grabbedObj.body.mass = 0; 
                             grabbedObj.body.velocity.set(0,0,0);
                             grabbedObj.body.angularVelocity.set(0,0,0);
+                        } else {
+                            const foundPlayer = Object.values(networkPlayers).find(p => p.group === hitObject);
+                            if(foundPlayer && foundPlayer.group.userData) {
+                                grabIsPlayer = true;
+                                grabbedPlayerId = foundPlayer.group.userData.networkId;
+                                grabbedObj = foundPlayer;
+                            }
                         }
                     }
                 }
@@ -673,22 +710,37 @@
 
         window.addEventListener('mouseup', (e) => {
             if (e.button === 2 && grabbedObj) {
-                grabbedObj.body.mass = 8; 
-                grabbedObj.body.updateMassProperties(); 
-                
                 const lookDirection = new THREE.Vector3();
                 camera.getWorldDirection(lookDirection);
-                
-                const launchForceScale = 38.0; 
-                grabbedObj.body.velocity.set(
-                    (lookDirection.x * launchForceScale) + (playerBody.velocity.x * 0.6),
-                    (lookDirection.y * launchForceScale) + (playerBody.velocity.y * 0.3) + 3.0, 
-                    (lookDirection.z * launchForceScale) + (playerBody.velocity.z * 0.6)
-                );
-                
-                grabbedObj.body.angularVelocity.set(Math.random()*10, Math.random()*10, Math.random()*10);
+                const launchForceScale = 38.0;
+
+                if (!grabIsPlayer) {
+                    // Throwing items
+                    grabbedObj.body.mass = 8; 
+                    grabbedObj.body.updateMassProperties(); 
+                    grabbedObj.body.velocity.set(
+                        (lookDirection.x * launchForceScale) + (playerBody.velocity.x * 0.6),
+                        (lookDirection.y * launchForceScale) + (playerBody.velocity.y * 0.3) + 3.0, 
+                        (lookDirection.z * launchForceScale) + (playerBody.velocity.z * 0.6)
+                    );
+                    grabbedObj.body.angularVelocity.set(Math.random()*10, Math.random()*10, Math.random()*10);
+                } else {
+                    // GMod style throwing players across the map via the database instance
+                    const targetThrowPos = new THREE.Vector3();
+                    camera.getWorldDirection(targetThrowPos).multiplyScalar(5).add(camera.position);
+                    
+                    set(ref(db, `rooms/${roomId}/players/${grabbedPlayerId}`), {
+                        name: ref(db, `rooms/${roomId}/players/${grabbedPlayerId}/name`),
+                        x: targetThrowPos.x + (lookDirection.x * 15),
+                        y: targetThrowPos.y + (lookDirection.y * 15) + 2,
+                        z: targetThrowPos.z + (lookDirection.z * 15),
+                        dirX: lookDirection.x, dirY: lookDirection.y, dirZ: lookDirection.z
+                    });
+                }
 
                 grabbedObj = null; 
+                grabbedPlayerId = null;
+                grabIsPlayer = false;
                 beamLine.visible = false;
             }
         });
@@ -699,7 +751,6 @@
                 world.fixedStep();
                 camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
                 
-                // Tightened raycast constraint to explicitly protect against frame-perfect spam jump flying
                 const startVec = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
                 const endVec = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.95, playerBody.position.z);
                 const raycastResult = new CANNON.RaycastResult();
@@ -716,9 +767,17 @@
                     const targetPos = new THREE.Vector3(); 
                     camera.getWorldDirection(targetPos).multiplyScalar(grabDistance).add(camera.position);
                     
-                    grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z); 
-                    grabbedObj.body.velocity.set(0,0,0);
-                    set(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), { type: grabbedObj.type, x: targetPos.x, y: targetPos.y, z: targetPos.z });
+                    if (!grabIsPlayer) {
+                        grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z); 
+                        grabbedObj.body.velocity.set(0,0,0);
+                        set(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), { type: grabbedObj.type, x: targetPos.x, y: targetPos.y, z: targetPos.z });
+                    } else {
+                        grabbedObj.group.position.set(targetPos.x, targetPos.y - 0.9, targetPos.z);
+                        set(ref(db, `rooms/${roomId}/players/${grabbedPlayerId}`), {
+                            x: targetPos.x, y: targetPos.y, z: targetPos.z,
+                            dirX: 0, dirY: 0, dirZ: 0
+                        });
+                    }
                     
                     const positions = beamLine.geometry.attributes.position.array;
                     positions[0] = camera.position.x; positions[1] = camera.position.y - 0.2; positions[2] = camera.position.z - 0.2; 
@@ -733,7 +792,7 @@
                     
                     let camTarget = new THREE.Vector3(); 
                     camera.getWorldDirection(camTarget); 
-                    if (!isFlying) camTarget.y = 0; // Lock Y axis look calculations unless active flying is enabled
+                    if (!isFlying) camTarget.y = 0; 
                     camTarget.normalize();
                     
                     const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize(), moveVector = new THREE.Vector3();
