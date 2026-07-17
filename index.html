@@ -87,6 +87,8 @@
         .spawn-btn { padding: 10px; background: #2a67bc; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase; }
         .spawn-btn.active, .spawn-btn.food.active { background: #21a03c; }
         .spawn-btn.food { background: #d47a22; }
+        .spawn-btn.appliance { background: #616161; }
+        .spawn-btn.appliance.active { background: #21a03c; }
         .admin-btn { padding: 10px; background: #b83232; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
         .flex-row { display: flex; gap: 10px; }
         .flex-row select { flex: 1; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;}
@@ -200,12 +202,15 @@
         </div>
 
         <div class="menu-section">
-            <h4>Food Items Update 🍔</h4>
+            <h4>Food & Interactive Props Update 🍔</h4>
             <div class="grid">
                 <button class="spawn-btn food" onclick="selectProp('taco', this)">🌮 Taco</button>
                 <button class="spawn-btn food" onclick="selectProp('pizza', this)">🍕 Pizza</button>
                 <button class="spawn-btn food" onclick="selectProp('burger', this)">🍔 Burger</button>
                 <button class="spawn-btn food" onclick="selectProp('fries', this)">🍟 Fries</button>
+            </div>
+            <div class="grid" style="margin-top:8px;">
+                <button class="spawn-btn appliance" style="grid-column: span 4;" onclick="selectProp('microwave', this)">📟 Microwave Oven</button>
             </div>
         </div>
 
@@ -261,7 +266,7 @@
 
     <script type="module">
         import { initializeApp } from "firebase/app";
-        import { getDatabase, ref, set, update, onValue, onChildAdded, onChildRemoved, remove, onDisconnect } from "firebase/database";
+        import { getDatabase, ref, set, update, onValue, onChildAdded, onChildRemoved, remove, onDisconnect, get } from "firebase/database";
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
@@ -292,7 +297,6 @@
         const savedUsername = localStorage.getItem('bm_saved_username') || "Player_" + Math.floor(100 + Math.random() * 900);
         document.getElementById('username-input').value = savedUsername;
 
-        // Permanent Local ID Verification setup
         let storedPlayerId = localStorage.getItem('bm_saved_player_id');
         if (!storedPlayerId) {
             storedPlayerId = Math.random().toString(36).substring(2, 9);
@@ -300,21 +304,24 @@
         }
         playerId = storedPlayerId;
 
-        onValue(ref(db, 'public_rooms'), (snapshot) => {
-            const listEl = document.getElementById('public-rooms-list');
-            listEl.innerHTML = "";
-            const data = snapshot.val();
-            if(!data || Object.keys(data).length === 0) {
-                listEl.innerHTML = '<div class="no-rooms">No active public rooms found. Create one!</div>';
-                return;
-            }
-            Object.keys(data).forEach(id => {
-                const item = document.createElement('div');
-                item.className = 'room-item';
-                item.innerHTML = `<span>📂 <b>${id}</b> (${data[id].count || 1} online)</span><button onclick="joinRoom('${id}')">JOIN</button>`;
-                listEl.appendChild(item);
+        try {
+            onValue(ref(db, 'public_rooms'), (snapshot) => {
+                const listEl = document.getElementById('public-rooms-list');
+                if(!listEl) return;
+                listEl.innerHTML = "";
+                const data = snapshot.val();
+                if(!data || Object.keys(data).length === 0) {
+                    listEl.innerHTML = '<div class="no-rooms">No active public rooms found. Create one!</div>';
+                    return;
+                }
+                Object.keys(data).forEach(id => {
+                    const item = document.createElement('div');
+                    item.className = 'room-item';
+                    item.innerHTML = `<span>📂 <b>${id}</b> (${data[id].count || 1} online)</span><button onclick="joinRoom('${id}')">JOIN</button>`;
+                    listEl.appendChild(item);
+                });
             });
-        });
+        } catch(e) { console.warn("Public channel stream loading postponed safely."); }
 
         window.joinRoom = function(id) {
             document.getElementById('room-input').value = id;
@@ -478,7 +485,7 @@
                 const playerCount = Object.keys(data).length;
                 
                 if (gameActive && playerCount > 0) {
-                    adminRef.get().then((adminSnap) => {
+                    get(adminRef).then((adminSnap) => {
                         const currentAdmin = adminSnap.val();
                         if (!currentAdmin || !currentAdmin.id || !data[currentAdmin.id]) {
                             const firstAvailablePlayerId = Object.keys(data)[0];
@@ -711,6 +718,17 @@
                     mesh.add(fry);
                 }
                 shape = new CANNON.Box(new CANNON.Vec3(0.25, 0.35, 0.25));
+
+            } else if (type === 'microwave') {
+                const mainBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4 }));
+                const windowPane = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.02), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1, transparent: true, opacity: 0.7 }));
+                windowPane.position.set(-0.15, 0, 0.401);
+                const panel = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.6, 0.02), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+                panel.position.set(0.4, -0.05, 0.401);
+                const screen = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.02), new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00aa00 }));
+                screen.position.set(0.4, 0.18, 0.403);
+                mesh.add(mainBody, windowPane, panel, screen);
+                shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.4, 0.4));
 
             } else if (type === 'cube') { 
                 const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.2 }));
