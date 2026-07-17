@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Benny's Mod Sandbox - Fixed Synced Physics Update</title>
+    <title>Benny's Mod Sandbox - Optimized Sync & Tools</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; user-select: none; }
         
@@ -85,8 +85,9 @@
         .menu-section { margin-bottom: 15px; }
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
         .spawn-btn { padding: 10px; background: #2a67bc; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase; }
-        .spawn-btn.active, .spawn-btn.food.active { background: #21a03c; }
+        .spawn-btn.active, .spawn-btn.food.active, .spawn-btn.utility.active { background: #21a03c; }
         .spawn-btn.food { background: #d47a22; }
+        .spawn-btn.utility { background: #8e44ad; }
         .spawn-btn.appliance { background: #616161; }
         .spawn-btn.appliance.active { background: #21a03c; }
         .admin-btn { padding: 10px; background: #b83232; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
@@ -164,7 +165,7 @@
     <div id="start-screen">
         <div class="menu-box">
             <h2 style="margin-bottom:0px;">Benny's Mod Sandbox</h2>
-            <div class="update-pill">REALTIME OBJECT SYNC MOD</div>
+            <div class="update-pill">LERPED NETWORK ENGINE</div>
             
             <label>Username</label>
             <input type="text" id="username-input">
@@ -223,15 +224,15 @@
         </div>
 
         <div class="menu-section">
-            <h4>Food & Interactive Props Update 🍔</h4>
+            <h4>Interactive Tools & Gear Update 🛠️</h4>
             <div class="grid">
+                <button class="spawn-btn utility" onclick="selectProp('frisbee', this)">🥏 Frisbee</button>
+                <button class="spawn-btn utility" onclick="selectProp('pickaxe', this)">⛏️ Pickaxe</button>
+                <button class="spawn-btn utility" onclick="selectProp('paintbucket', this)">🪣 Paint Bucket</button>
                 <button class="spawn-btn food" onclick="selectProp('taco', this)">🌮 Taco</button>
-                <button class="spawn-btn food" onclick="selectProp('pizza', this)">🍕 Pizza Slice</button>
-                <button class="spawn-btn food" onclick="selectProp('burger', this)">🍔 Burger</button>
-                <button class="spawn-btn food" onclick="selectProp('fries', this)">🍟 Fries</button>
             </div>
             <div class="grid" style="margin-top:8px;">
-                <button class="spawn-btn appliance" style="flex:1;" onclick="selectProp('microwave', this)">📟 Microwave Oven</button>
+                <button class="spawn-btn appliance" style="flex:1;" onclick="selectProp('microwave', this)">📟 Microwave</button>
                 <button class="spawn-btn appliance" style="flex:1; background: #cc2222;" onclick="selectProp('youtube', this)">📺 YouTube Player</button>
             </div>
             
@@ -273,11 +274,10 @@
         <strong>Controls:</strong><br>
         • Click screen to look (WASD to move, Space to Jump)<br>
         • Press <strong>G</strong> to toggle <strong>Fly Mode</strong> | Hold <strong>Spacebar</strong> to float upward<br>
-        • Press <strong>J</strong> to cycle <strong>1st / 2nd (Front) / 3rd Person Views</strong><br>
+        • Press <strong>J</strong> to cycle <strong>1st / 3rd Person Views</strong><br>
         • Hold <strong>Q</strong> to open Spawn Menu & Options<br>
-        • Left-Click to spawn selected prop<br>
-        • Right-Click & Hold <strong>Portal Gun</strong> to Grab Objects / Other Players<br>
-        • Release Right-Click while flicking to <strong>Throw (GMod Style)</strong>
+        • Left-Click to spawn selected item<br>
+        • Right-Click & Hold to Grab Objects / Release to <strong>Throw!</strong>
     </div>
 
     <script type="importmap">
@@ -320,7 +320,7 @@
         let gameActive = false, isAdmin = false;
 
         let lastSpawnTime = 0;
-        const SPAWN_COOLDOWN_MS = 600; 
+        const SPAWN_COOLDOWN_MS = 300; 
 
         const startBtn = document.getElementById('start-btn');
         startBtn.innerText = "LAUNCH GAME";
@@ -353,7 +353,7 @@
                     listEl.appendChild(item);
                 });
             });
-        } catch(e) { console.warn("Public channel stream loading postponed safely."); }
+        } catch(e) { console.warn("Database channel streaming delayed."); }
 
         window.joinRoom = function(id) {
             document.getElementById('room-input').value = id;
@@ -485,13 +485,6 @@
             roomPublicRegistrationRef = ref(db, `public_rooms/${roomId}`);
             youtubeStateRef = ref(db, `rooms/${roomId}/youtube_state`);
 
-            onValue(banRef, (snapshot) => {
-                if (snapshot.val()) {
-                    alert(`Access Denied: You have been banned from room "${roomId}".`);
-                    location.reload();
-                }
-            });
-
             onDisconnect(playerRef).remove();
             if(isPublicRoom) onDisconnect(roomPublicRegistrationRef).remove();
 
@@ -505,40 +498,6 @@
                 controls.lock();
                 gameActive = true;
             }, 450);
-        });
-
-        document.getElementById('glb-file-input').addEventListener('change', (e) => {
-            if (isPublicRoom) return; 
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const contents = event.target.result;
-                const loader = new GLTFLoader();
-                loader.parse(contents, '', (gltf) => {
-                    const customModelGroup = gltf.scene;
-                    const targetPos = new THREE.Vector3();
-                    camera.getWorldDirection(targetPos).multiplyScalar(4).add(camera.position);
-                    const customPropId = "glb_" + Math.random().toString(36).substring(2, 9);
-                    
-                    set(ref(db, `rooms/${roomId}/props/${customPropId}`), { 
-                        type: 'cube', 
-                        x: targetPos.x, y: targetPos.y, z: targetPos.z,
-                        rx: 0, ry: 0, rz: 0, rw: 1,
-                        lastInteractedBy: playerId
-                    });
-
-                    setTimeout(() => {
-                        if (props[customPropId]) {
-                            props[customPropId].mesh.clear();
-                            props[customPropId].mesh.add(customModelGroup);
-                        }
-                    }, 200);
-
-                }, (err) => { console.error("Error evaluating GLB model:", err); });
-            };
-            reader.readAsArrayBuffer(file);
         });
 
         function setupMultiplayerListeners() {
@@ -556,48 +515,17 @@
                 }
             });
 
-            onValue(playerRef, (snapshot) => {
-                if (gameActive && !snapshot.exists()) {
-                    setTimeout(() => {
-                        if (gameActive && !snapshot.exists()) {
-                            alert("You have been kicked or removed from this room.");
-                            location.reload();
-                        }
-                    }, 400);
-                }
-            });
-
             onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
                 const data = snapshot.val() || {};
                 const listPanel = document.getElementById('player-list-content');
                 const playerCount = Object.keys(data).length;
                 
-                if (gameActive && playerCount > 0) {
-                    get(adminRef).then((adminSnap) => {
-                        const currentAdmin = adminSnap.val();
-                        if (!currentAdmin || !currentAdmin.id || !data[currentAdmin.id]) {
-                            const firstAvailablePlayerId = Object.keys(data)[0];
-                            const firstAvailablePlayerName = data[firstAvailablePlayerId].name || "Player";
-                            set(adminRef, { id: firstAvailablePlayerId, name: firstAvailablePlayerName });
-                        }
-                    });
-                }
-
                 listPanel.innerHTML = `<div class="player-list-item"><div class="player-info"><span class="status-dot" style="background:#21a03c"></span>${username} ${isAdmin ? '(Admin)' : ''}</div></div>`;
-
-                if(isPublicRoom && playerCount > 0) {
-                    set(roomPublicRegistrationRef, { count: playerCount });
-                }
 
                 Object.keys(networkPlayers).forEach(id => {
                     if (!data[id]) { 
-                        if(networkPlayers[id].label) {
-                            networkPlayers[id].group.remove(networkPlayers[id].label);
-                        }
+                        if(networkPlayers[id].label) networkPlayers[id].group.remove(networkPlayers[id].label);
                         scene.remove(networkPlayers[id].group); 
-                        if (grabbedPlayerId === id) {
-                            grabbedObj = null; grabbedPlayerId = null; grabIsPlayer = false; beamLine.visible = false;
-                        }
                         delete networkPlayers[id]; 
                     }
                 });
@@ -605,324 +533,124 @@
                 Object.keys(data).forEach(id => {
                     if (id === playerId) return;
                     const userStr = data[id].name || 'Guest';
-                    const isTargetAdmin = data[id].isAdminStatus ? ' (Admin)' : '';
                     
-                    const pRow = document.createElement('div');
-                    pRow.className = 'player-list-item';
-                    pRow.innerHTML = `
-                        <div class="player-info"><span class="status-dot" style="background:#e0a800"></span>${userStr}${isTargetAdmin}</div>
-                        <div class="action-container">
-                            <button class="kick-action" style="display: ${isAdmin ? 'inline-block' : 'none'}">KICK</button>
-                            <button class="ban-action" style="display: ${isAdmin ? 'inline-block' : 'none'}">BAN</button>
-                        </div>
-                    `;
-                    
-                    pRow.querySelector('.kick-action').addEventListener('click', () => {
-                        if (confirm(`Kick ${userStr}?`)) remove(ref(db, `rooms/${roomId}/players/${id}`));
-                    });
-
-                    pRow.querySelector('.ban-action').addEventListener('click', () => {
-                        if (confirm(`Permanently ban ${userStr} from this room?`)) {
-                            set(ref(db, `rooms/${roomId}/bans/${userStr.toLowerCase()}`), true);
-                            remove(ref(db, `rooms/${roomId}/players/${id}`));
-                        }
-                    });
-
-                    listPanel.appendChild(pRow);
-
                     if (!networkPlayers[id]) {
                         const group = new THREE.Group();
                         const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.0, 10), new THREE.MeshStandardMaterial({ color: data[id].color || 0xff0000 }));
                         bodyMesh.position.y = 0.9;
                         group.add(bodyMesh);
 
-                        const legMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-                        const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.6, 6), legMat); leftLeg.position.set(-0.18, 0.3, 0);
-                        const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.6, 6), legMat); rightLeg.position.set(0.18, 0.3, 0);
-                        group.add(leftLeg, rightLeg);
-
                         const headGroup = new THREE.Group();
                         const headBase = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 14), new THREE.MeshStandardMaterial({ color: 0xffeecc }));
-                        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.1, 0.2), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, roughness: 0.1 }));
-                        visor.position.set(0, 0.05, 0.22); headGroup.add(headBase, visor); headGroup.position.y = 1.6;
+                        headGroup.add(headBase); headGroup.position.y = 1.6;
                         group.add(headGroup);
                         
                         const nameDiv = document.createElement('div');
                         nameDiv.className = 'username-tag';
-                        nameDiv.innerHTML = `${userStr} <span class="admin-tag">${data[id].isAdminStatus ? 'ADMIN' : ''}</span>`;
+                        nameDiv.innerText = userStr;
                         const nameLabel = new CSS2DObject(nameDiv);
                         nameLabel.position.set(0, 2.3, 0); 
                         group.add(nameLabel);
 
-                        networkPlayers[id] = { group, head: headGroup, body: bodyMesh, name: userStr, label: nameLabel };
-                        networkPlayers[id].group.userData = { isPlayer: true, networkId: id };
+                        networkPlayers[id] = { group, head: headGroup, targetPos: new THREE.Vector3(), targetLook: new THREE.Vector3() };
                         scene.add(networkPlayers[id].group);
                     }
 
-                    const tagEl = networkPlayers[id].label.element.querySelector('.admin-tag');
-                    if(tagEl) tagEl.style.display = data[id].isAdminStatus ? 'block' : 'none';
-
-                    if (!(grabIsPlayer && grabbedPlayerId === id)) {
-                        networkPlayers[id].group.position.set(data[id].x, data[id].y - 0.9, data[id].z);
-                    }
-                    
+                    // Network Lerp Interpolation Target Definition
+                    networkPlayers[id].targetPos.set(data[id].x, data[id].y - 0.9, data[id].z);
                     if (data[id].dirX !== undefined) {
-                        const lookTarget = new THREE.Vector3(
-                            networkPlayers[id].group.position.x + data[id].dirX * 5,
-                            networkPlayers[id].group.position.y + 1.6 + data[id].dirY * 5,
-                            networkPlayers[id].group.position.z + data[id].dirZ * 5
-                        );
-                        networkPlayers[id].head.lookAt(lookTarget);
+                        networkPlayers[id].targetLook.set(data[id].dirX, data[id].dirY, data[id].dirZ);
                     }
                 });
-
-                document.querySelectorAll('.ban-action, .kick-action').forEach(b => b.style.display = isAdmin ? 'inline-block' : 'none');
-            });
-
-            onValue(envRef, (snapshot) => {
-                const env = snapshot.val();
-                if (env) {
-                    if (env.skybox) scene.background.setHex(parseInt(env.skybox));
-                    if (env.ground) groundMat.color.setHex(parseInt(env.ground));
-                }
             });
 
             onChildAdded(propsRef, (snapshot) => {
                 const id = snapshot.key; if (props[id]) return;
                 const val = snapshot.val();
                 createLocalProp(id, val.type, val.x, val.y, val.z);
-                if (val.rx !== undefined && props[id]) {
-                    props[id].body.quaternion.set(val.rx, val.ry, val.rz, val.rw);
-                }
             });
 
-            // --- Realtime Modification Remap Node ---
             onChildChanged(propsRef, (snapshot) => {
                 const id = snapshot.key;
                 const val = snapshot.val();
                 if (props[id] && val && val.lastInteractedBy !== playerId) {
-                    // Overrides physics parameters if another client is moving the prop
-                    props[id].body.position.set(val.x, val.y, val.z);
-                    if (val.rx !== undefined) {
-                        props[id].body.quaternion.set(val.rx, val.ry, val.rz, val.rw);
-                    }
-                    props[id].body.velocity.set(0, 0, 0);
-                    props[id].body.angularVelocity.set(0, 0, 0);
+                    // Lock buffer updates to remote targets to avoid local engine jitter
+                    props[id].targetPos.set(val.x, val.y, val.z);
+                    props[id].targetRot.set(val.rx, val.ry, val.rz, val.rw);
+                    props[id].isRemoteMoving = true;
                 }
             });
 
             onChildRemoved(propsRef, (snapshot) => {
                 const id = snapshot.key;
                 if (props[id]) { 
-                    if(props[id].domLabel) scene.remove(props[id].domLabel);
                     scene.remove(props[id].mesh); 
                     world.removeBody(props[id].body); 
                     delete props[id]; 
                 }
             });
-
-            onValue(youtubeStateRef, (snapshot) => {
-                const val = snapshot.val();
-                const ytIframe = document.getElementById('global-yt-iframe');
-                if (ytIframe && val && val.videoId) {
-                    const elapsed = Math.floor((Date.now() - val.startedAt) / 1000);
-                    const parsedSrc = `https://www.youtube.com/embed/${val.videoId}?autoplay=1&start=${elapsed}&controls=0&rel=0`;
-                    if (!ytIframe.src.includes(val.videoId) || Math.abs(elapsed - new URLSearchParams(new URL(ytIframe.src).search).get('start')) > 4) {
-                        ytIframe.src = parsedSrc;
-                    }
-                }
-            });
         }
 
-        document.getElementById('skybox-select').addEventListener('change', (e) => { if (gameActive) set(ref(db, `rooms/${roomId}/environment/skybox`), e.target.value); });
-        document.getElementById('ground-select').addEventListener('change', (e) => { if (gameActive) set(ref(db, `rooms/${roomId}/environment/ground`), e.target.value); });
-        document.getElementById('clear-room-btn').addEventListener('click', () => { 
-            if (isAdmin) {
-                remove(propsRef);
-                remove(youtubeStateRef);
-            }
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (!gameActive) return;
-            if (e.code === 'KeyW') moveForward = true;
-            if (e.code === 'KeyS') moveBackward = true;
-            if (e.code === 'KeyA') moveLeft = true;
-            if (e.code === 'KeyD') moveRight = true;
-            if (e.code === 'Space') {
-                spacePressed = true;
-            }
-            if (e.code === 'KeyC' && isFlying) {
-                playerBody.velocity.y = -12.0;
-            }
-            if (e.code === 'KeyG') {
-                isFlying = !isFlying;
-                playerBody.velocity.set(0, 0, 0);
-            }
-            if (e.code === 'KeyJ') {
-                viewMode = (viewMode + 1) % 3; 
-                localAvatarGroup.visible = (viewMode !== 0);
-                document.getElementById('crosshair').style.display = (viewMode === 0) ? 'block' : 'none';
-            }
-            if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            if (e.code === 'KeyW') moveForward = false;
-            if (e.code === 'KeyS') moveBackward = false;
-            if (e.code === 'KeyA') moveLeft = false;
-            if (e.code === 'KeyD') moveRight = false;
-            if (e.code === 'Space') {
-                spacePressed = false;
-                spaceWasReleased = true; 
-            }
-            if ((e.code === 'Space' || e.code === 'KeyC') && isFlying) {
-                playerBody.velocity.y = 0;
-            }
-            if (e.code === 'KeyQ') { 
-                menu.style.display = 'none'; 
-                if(document.activeElement) document.activeElement.blur(); 
-                setTimeout(() => { controls.lock(); }, 50); 
-            }
-        });
-
-        function parseYouTubeId(url) {
-            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-            const match = url.match(regExp);
-            return (match && match[2].length === 11) ? match[2] : "dQw4w9WgXcQ";
-        }
+        document.getElementById('clear-room-btn').addEventListener('click', () => { if (isAdmin) remove(propsRef); });
 
         function createLocalProp(id, type, x, y, z) {
-            let mesh = new THREE.Group(), shape, domLabel = null;
+            let mesh = new THREE.Group(), shape;
             
-            if (type === 'taco') {
-                const shellGeo = new THREE.TorusGeometry(0.4, 0.1, 12, 24, Math.PI);
-                const shellMat = new THREE.MeshStandardMaterial({ color: 0xf3ca40, roughness: 0.5 }); 
-                const shell = new THREE.Mesh(shellGeo, shellMat); shell.rotation.x = Math.PI; mesh.add(shell);
-                const beefGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.6, 8);
-                const beefMat = new THREE.MeshStandardMaterial({ color: 0x5c3d2e });
-                const beef = new THREE.Mesh(beefGeo, beefMat); beef.rotation.z = Math.PI / 2; beef.position.y = -0.05; mesh.add(beef);
-                const lettuceMat = new THREE.MeshStandardMaterial({ color: 0x44aa22 });
-                const tomatoMat = new THREE.MeshStandardMaterial({ color: 0xdd2211 });
-                for(let i=0; i<6; i++) {
-                    const topGeo = new THREE.SphereGeometry(0.05, 4, 4);
-                    const topping = new THREE.Mesh(topGeo, (i % 2 === 0)? lettuceMat : tomatoMat);
-                    topping.position.set((Math.random()-0.5)*0.5, 0, (Math.random()-0.5)*0.1); mesh.add(topping);
-                }
-                shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.3, 0.2));
-            } else if (type === 'burger') {
-                const bunMat = new THREE.MeshStandardMaterial({ color: 0xdd9955, roughness: 0.6 });
-                const meatMat = new THREE.MeshStandardMaterial({ color: 0x553311, roughness: 0.9 });
-                const cheeseMat = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
-                const bottomBun = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.1, 12), bunMat); bottomBun.position.y = 0.05; mesh.add(bottomBun);
-                const patty = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.08, 12), meatMat); patty.position.y = 0.14; mesh.add(patty);
-                const cheese = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.36), cheeseMat); cheese.position.y = 0.19; mesh.add(cheese);
-                const topBun = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12, 0, Math.PI*2, 0, Math.PI/2), bunMat); topBun.position.y = 0.2; mesh.add(topBun);
-                shape = new CANNON.Cylinder(0.38, 0.38, 0.4, 8);
-            } else if (type === 'pizza') {
-                const crustMat = new THREE.MeshStandardMaterial({ color: 0xd27d2d, roughness: 0.7 });
-                const cheeseMat = new THREE.MeshStandardMaterial({ color: 0xffd700 });
-                const pepMat = new THREE.MeshStandardMaterial({ color: 0xb22222 });
-                const sliceBase = new THREE.Group();
-                const cheeseMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.04, 24, 1, false, 0, Math.PI / 3), cheeseMat);
-                cheeseMesh.rotation.x = Math.PI / 2; sliceBase.add(cheeseMesh);
-                const crustMesh = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.05, 8, 16, Math.PI / 3), crustMat);
-                crustMesh.position.set(0, 0, 0.01); sliceBase.add(crustMesh);
-                for (let i = 0; i < 4; i++) {
-                    const pep = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.01, 8), pepMat);
-                    pep.rotation.x = Math.PI / 2; const radius = 0.2 + Math.random() * 0.25; const angle = Math.random() * (Math.PI / 3);
-                    pep.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0.025); sliceBase.add(pep);
-                }
-                sliceBase.rotation.x = -Math.PI / 2; mesh.add(sliceBase);
-                shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.06, 0.4));
-            } else if (type === 'fries') {
-                const cupMat = new THREE.MeshStandardMaterial({ color: 0xcc2222 });
-                const fryMat = new THREE.MeshStandardMaterial({ color: 0xffdd44, roughness: 0.5 });
-                const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.18, 0.4, 10), cupMat); cup.position.y = 0.2; mesh.add(cup);
-                for(let i = 0; i < 12; i++) {
-                    const fry = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.35, 0.04), fryMat);
-                    fry.position.set((Math.random()-0.5)*0.2, 0.35, (Math.random()-0.5)*0.2); fry.rotation.set((Math.random()-0.5)*0.3, 0, (Math.random()-0.5)*0.3);
-                    mesh.add(fry);
-                }
-                shape = new CANNON.Box(new CANNON.Vec3(0.25, 0.35, 0.25));
-            } else if (type === 'microwave') {
-                const mainBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4 }));
-                const windowPane = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.02), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1, transparent: true, opacity: 0.7 }));
-                windowPane.position.set(-0.15, 0, 0.401);
-                const panel = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.6, 0.02), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-                panel.position.set(0.4, -0.05, 0.401);
-                const screen = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.02), new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00aa00 }));
-                screen.position.set(0.4, 0.18, 0.403);
-                mesh.add(mainBody, windowPane, panel, screen);
-                shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.4, 0.4));
-            } else if (type === 'youtube') {
-                const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 12), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-                stand.position.y = 0.25;
-                const frame = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.1, 0.15), new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.5 }));
-                frame.position.y = 1.3;
-                mesh.add(stand, frame);
-                const container = document.createElement('div');
-                container.className = 'youtube-screen-container';
-                container.innerHTML = `<iframe id="global-yt-iframe" width="100%" height="100%" src="about:blank" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" style="width:100%; height:100%; border:none; display:block;"></iframe>`;
-                domLabel = new CSS2DObject(container); domLabel.position.set(x, y + 1.3, z); scene.add(domLabel);
-                shape = new CANNON.Box(new CANNON.Vec3(1.8, 1.1, 0.3));
+            if (type === 'frisbee') {
+                const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.08, 16), new THREE.MeshStandardMaterial({ color: 0xff3366 }));
+                mesh.add(disc);
+                shape = new CANNON.Cylinder(0.5, 0.5, 0.08, 16);
+            } else if (type === 'pickaxe') {
+                const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 8), new THREE.MeshStandardMaterial({ color: 0x8b5a2b }));
+                handle.rotation.z = Math.PI / 2;
+                const head = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 6, 12, Math.PI), new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8 }));
+                head.position.x = 0.5; head.rotation.z = -Math.PI/2;
+                mesh.add(handle, head);
+                shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.3, 0.1));
+            } else if (type === 'paintbucket') {
+                const can = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.7, 12), new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.5 }));
+                const paint = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.02, 12), new THREE.MeshStandardMaterial({ color: 0x00ffcc }));
+                paint.position.y = 0.35;
+                mesh.add(can, paint);
+                shape = new CANNON.Cylinder(0.3, 0.3, 0.7, 12);
             } else if (type === 'cube') { 
-                const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.2 }));
-                mesh.add(boxMesh); shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.6)); 
+                mesh.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff })));
+                shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.6)); 
             } else if (type === 'sphere') { 
-                const sphereMesh = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
-                mesh.add(sphereMesh); shape = new CANNON.Sphere(0.6); 
+                mesh.add(new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff })));
+                shape = new CANNON.Sphere(0.6); 
             } else if (type === 'cylinder') { 
-                const cylMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.2, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
-                mesh.add(cylMesh); shape = new CANNON.Cylinder(0.6, 0.6, 1.2, 16); 
+                mesh.add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.2, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff })));
+                shape = new CANNON.Cylinder(0.6, 0.6, 1.2, 16); 
             } else if (type === 'torus') { 
-                const torusMesh = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.2, 8, 24), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
-                mesh.add(torusMesh); shape = new CANNON.Sphere(0.6); 
+                mesh.add(new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.2, 8, 24), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff })));
+                shape = new CANNON.Sphere(0.6); 
+            } else {
+                mesh.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0xffaa00 })));
+                shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.4, 0.4));
             }
             
             mesh.position.set(x, y, z);
             scene.add(mesh);
             
-            const body = new CANNON.Body({ mass: type === 'youtube' ? 0 : 8, shape: shape });
+            const body = new CANNON.Body({ mass: 8, shape: shape });
             body.position.set(x, y, z);
             world.addBody(body);
-            props[id] = { id, mesh, body, type, domLabel };
+            
+            props[id] = { 
+                id, mesh, body, type, 
+                targetPos: new THREE.Vector3(x, y, z), 
+                targetRot: new THREE.Quaternion(),
+                isRemoteMoving: false 
+            };
         }
 
         window.addEventListener('mousedown', (e) => {
             if (!controls.isLocked || !gameActive) return;
-            
             if (e.button === 0) { 
                 const now = Date.now();
                 if (now - lastSpawnTime < SPAWN_COOLDOWN_MS) return; 
                 lastSpawnTime = now;
-
-                if (currentPropType === 'youtube') {
-                    const existingYt = Object.values(props).find(p => p.type === 'youtube');
-                    if (existingYt) {
-                        alert("A synced video player panel already exists inside this server layout!");
-                        return;
-                    }
-                    
-                    controls.unlock();
-                    const urlInput = prompt("Enter a valid YouTube URL or Video Identifier String:");
-                    setTimeout(() => { controls.lock(); }, 100);
-                    
-                    if (!urlInput) return;
-                    const parsedVideoId = parseYouTubeId(urlInput);
-                    
-                    const targetPos = new THREE.Vector3();
-                    camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
-                    const newPropId = Math.random().toString(36).substring(2, 9);
-                    
-                    set(youtubeStateRef, { videoId: parsedVideoId, startedAt: Date.now() }).then(() => {
-                        set(ref(db, `rooms/${roomId}/props/${newPropId}`), { 
-                            type: 'youtube', x: targetPos.x, y: targetPos.y, z: targetPos.z,
-                            rx: 0, ry: 0, rz: 0, rw: 1, lastInteractedBy: playerId
-                        });
-                    });
-                    return;
-                }
 
                 const targetPos = new THREE.Vector3();
                 camera.getWorldDirection(targetPos).multiplyScalar(4).add(camera.position);
@@ -936,32 +664,17 @@
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
                 const targets = [];
                 Object.values(props).forEach(p => targets.push(p.mesh));
-                Object.values(networkPlayers).forEach(p => targets.push(p.group));
-
                 const intersects = raycaster.intersectObjects(targets, true);
                 if (intersects.length > 0) {
                     let hitObject = intersects[0].object;
                     grabDistance = intersects[0].distance;
-                    
-                    while(hitObject.parent && !targets.includes(hitObject) && hitObject.parent.type !== "Scene") { 
-                        hitObject = hitObject.parent; 
-                    }
-                    
-                    if (targets.includes(hitObject)) {
-                        const foundProp = Object.values(props).find(p => p.mesh === hitObject);
-                        if(foundProp) { 
-                            if(foundProp.type === 'youtube') return; 
-                            grabbedObj = foundProp; grabIsPlayer = false;
-                            grabbedObj.body.mass = 0; grabbedObj.body.velocity.set(0,0,0); grabbedObj.body.angularVelocity.set(0,0,0);
-                            
-                            // Sets ownership flag instantly when picked up
-                            update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), { lastInteractedBy: playerId });
-                        } else {
-                            const foundPlayer = Object.values(networkPlayers).find(p => p.group === hitObject);
-                            if(foundPlayer && foundPlayer.group.userData) {
-                                grabIsPlayer = true; grabbedPlayerId = foundPlayer.group.userData.networkId; grabbedObj = foundPlayer;
-                            }
-                        }
+                    while(hitObject.parent && !targets.includes(hitObject) && hitObject.parent.type !== "Scene") { hitObject = hitObject.parent; }
+                    const foundProp = Object.values(props).find(p => p.mesh === hitObject);
+                    if(foundProp) { 
+                        grabbedObj = foundProp; grabIsPlayer = false;
+                        grabbedObj.body.mass = 0; grabbedObj.body.velocity.set(0,0,0);
+                        grabbedObj.isRemoteMoving = false;
+                        update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), { lastInteractedBy: playerId });
                     }
                 }
             }
@@ -971,154 +684,119 @@
             if (e.button === 2 && grabbedObj) {
                 const lookDirection = new THREE.Vector3();
                 camera.getWorldDirection(lookDirection);
-                const launchForceScale = 38.0;
-
-                if (!grabIsPlayer) {
-                    grabbedObj.body.mass = 8; grabbedObj.body.updateMassProperties(); 
-                    grabbedObj.body.velocity.set(
-                        (lookDirection.x * launchForceScale) + (playerBody.velocity.x * 0.6),
-                        (lookDirection.y * launchForceScale) + (playerBody.velocity.y * 0.3) + 3.0, 
-                        (lookDirection.z * launchForceScale) + (playerBody.velocity.z * 0.6)
-                    );
-                    grabbedObj.body.angularVelocity.set(Math.random()*10, Math.random()*10, Math.random()*10);
-                } else {
-                    if (networkPlayers[grabbedPlayerId]) {
-                        const targetThrowPos = new THREE.Vector3();
-                        camera.getWorldDirection(targetThrowPos).multiplyScalar(5).add(camera.position);
-                        const pName = networkPlayers[grabbedPlayerId].name || "Remote Player";
-                        update(ref(db, `rooms/${roomId}/players/${grabbedPlayerId}`), {
-                            name: pName, x: targetThrowPos.x + (lookDirection.x * 15), y: targetThrowPos.y + (lookDirection.y * 15) + 2, z: targetThrowPos.z + (lookDirection.z * 15),
-                            dirX: lookDirection.x, dirY: lookDirection.y, dirZ: lookDirection.z
-                        });
-                    }
-                }
-                grabbedObj = null; grabbedPlayerId = null; grabIsPlayer = false; beamLine.visible = false;
+                
+                // Frisbee specific physics adjustments
+                let force = grabbedObj.type === 'frisbee' ? 45.0 : 30.0;
+                grabbedObj.body.mass = 8; grabbedObj.body.updateMassProperties(); 
+                grabbedObj.body.velocity.set(lookDirection.x * force, (lookDirection.y * force) + 2, lookDirection.z * force);
+                
+                grabbedObj = null; beamLine.visible = false;
             }
+        });
+
+        // Key Listeners
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            if (e.code === 'KeyW') moveForward = true;
+            if (e.code === 'KeyS') moveBackward = true;
+            if (e.code === 'KeyA') moveLeft = true;
+            if (e.code === 'KeyD') moveRight = true;
+            if (e.code === 'Space') spacePressed = true;
+            if (e.code === 'KeyG') isFlying = !isFlying;
+            if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyW') moveForward = false;
+            if (e.code === 'KeyS') moveBackward = false;
+            if (e.code === 'KeyA') moveLeft = false;
+            if (e.code === 'KeyD') moveRight = false;
+            if (e.code === 'Space') spacePressed = false;
+            if (e.code === 'KeyQ') { menu.style.display = 'none'; setTimeout(() => { controls.lock(); }, 50); }
         });
 
         const playerEuler = new THREE.Euler(0, 0, 0, 'YXZ');
         document.addEventListener('mousemove', (e) => {
             if (!controls.isLocked || !gameActive) return;
-            const movementX = e.movementX || 0; const movementY = e.movementY || 0;
-            playerEuler.y -= movementX * 0.002; playerEuler.x -= movementY * 0.002;
+            playerEuler.y -= (e.movementX || 0) * 0.002; playerEuler.x -= (e.movementY || 0) * 0.002;
             playerEuler.x = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, playerEuler.x));
         });
 
         let syncTimer = 0;
+        const clock = new THREE.Clock();
+
         function animate() {
             requestAnimationFrame(animate);
-            if (gameActive) {
-                world.fixedStep();
-                
-                if (isFlying) {
-                    if (spacePressed) playerBody.velocity.y = 12.0;
+            if (!gameActive) return;
+
+            const delta = Math.min(clock.getDelta(), 0.1);
+            world.fixedStep();
+            
+            // Player movement physics
+            if (isFlying && spacePressed) playerBody.velocity.y = 12.0;
+            localAvatarGroup.position.set(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
+
+            camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
+            camera.quaternion.setFromEuler(playerEuler);
+            portalGunGroup.position.copy(camera.position).add(new THREE.Vector3(0.25, -0.22, -0.45).applyQuaternion(camera.quaternion));
+            portalGunGroup.quaternion.copy(camera.quaternion);
+
+            // Interpolate remote players seamlessly using alpha lerps
+            Object.keys(networkPlayers).forEach(id => {
+                const p = networkPlayers[id];
+                p.group.position.lerp(p.targetPos, delta * 15);
+                const lookTarget = new THREE.Vector3().copy(p.group.position).addScaledVector(p.targetLook, 5);
+                p.head.lookAt(lookTarget);
+            });
+
+            syncTimer++;
+            
+            // Dynamic Synchronization Tick Layer
+            Object.values(props).forEach(prop => {
+                if (prop.isRemoteMoving) {
+                    // Smoothly blend physics positions on non-owner screens instead of hard snap teleports
+                    prop.body.position.set(
+                        THREE.MathUtils.lerp(prop.body.position.x, prop.targetPos.x, delta * 12),
+                        THREE.MathUtils.lerp(prop.body.position.y, prop.targetPos.y, delta * 12),
+                        THREE.MathUtils.lerp(prop.body.position.z, prop.targetPos.z, delta * 12)
+                    );
+                    prop.body.quaternion.slerp(prop.targetRot, delta * 12);
+                    prop.mesh.position.copy(prop.body.position);
+                    prop.mesh.quaternion.copy(prop.body.quaternion);
                 } else {
-                    const startVec = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.89, playerBody.position.z);
-                    const endVec = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.96, playerBody.position.z);
-                    const raycastResult = new CANNON.RaycastResult();
-                    world.raycastClosest(startVec, endVec, {}, raycastResult);
-                    canJump = raycastResult.hasHit && Math.abs(playerBody.velocity.y) < 1.5;
-                    
-                    if (spacePressed && canJump && spaceWasReleased) {
-                        playerBody.velocity.y = 9.5; canJump = false; spaceWasReleased = false; 
+                    prop.mesh.position.copy(prop.body.position);
+                    prop.mesh.quaternion.copy(prop.body.quaternion);
+
+                    if (syncTimer % 3 === 0 && (prop.body.velocity.length() > 0.02 || grabbedObj === prop)) {
+                        update(ref(db, `rooms/${roomId}/props/${prop.id}`), {
+                            x: prop.body.position.x, y: prop.body.position.y, z: prop.body.position.z,
+                            rx: prop.body.quaternion.x, ry: prop.body.quaternion.y, rz: prop.body.quaternion.z, rw: prop.body.quaternion.w,
+                            lastInteractedBy: playerId
+                        });
                     }
                 }
+            });
 
-                localAvatarGroup.position.set(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
-                localAvatarGroup.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), playerEuler.y);
-
-                const lookDir = new THREE.Vector3(0, 0, -1).applyEuler(playerEuler);
-                const localLookTarget = new THREE.Vector3(localAvatarGroup.position.x + lookDir.x * 5, localAvatarGroup.position.y + 1.6 + lookDir.y * 5, localAvatarGroup.position.z + lookDir.z * 5);
-                localHeadGroup.lookAt(localLookTarget);
-
-                if (viewMode === 0) {
-                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
-                    camera.quaternion.setFromEuler(playerEuler);
-                    portalGunGroup.position.copy(camera.position).add(new THREE.Vector3(0.25, -0.22, -0.45).applyQuaternion(camera.quaternion));
-                    portalGunGroup.quaternion.copy(camera.quaternion);
-                    portalGunGroup.visible = true;
-                } else if (viewMode === 1) {
-                    const forwardOffset = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, playerEuler.y, 0));
-                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z).addScaledVector(forwardOffset, 3.2);
-                    camera.lookAt(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
-                    portalGunGroup.visible = false;
-                } else if (viewMode === 2) {
-                    const backwardOffset = new THREE.Vector3(0, 0, 1).applyEuler(playerEuler);
-                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.8, playerBody.position.z).addScaledVector(backwardOffset, 4.5);
-                    camera.quaternion.setFromEuler(playerEuler);
-                    portalGunGroup.visible = false;
-                }
-                
-                // --- Continuous Object Stream Processing Layer ---
-                syncTimer++;
-                Object.values(props).forEach(prop => { 
-                    if (prop.type !== 'youtube') {
-                        prop.mesh.position.copy(prop.body.position); 
-                        prop.mesh.quaternion.copy(prop.body.quaternion); 
-
-                        // Every 3 frames, check if this prop is moving/flying and broadcast coordinates
-                        if (syncTimer % 3 === 0) {
-                            const speed = prop.body.velocity.length();
-                            const angSpeed = prop.body.angularVelocity.length();
-                            
-                            // If the object is active or being grabbed by you, broadcast its coordinates
-                            if ((speed > 0.05 || angSpeed > 0.05 || grabbedObj === prop)) {
-                                update(ref(db, `rooms/${roomId}/props/${prop.id}`), {
-                                    x: prop.body.position.x,
-                                    y: prop.body.position.y,
-                                    z: prop.body.position.z,
-                                    rx: prop.body.quaternion.x,
-                                    ry: prop.body.quaternion.y,
-                                    rz: prop.body.quaternion.z,
-                                    rw: prop.body.quaternion.w,
-                                    lastInteractedBy: playerId
-                                });
-                            }
-                        }
-                    } else if (prop.domLabel) {
-                        prop.domLabel.position.set(prop.mesh.position.x, prop.mesh.position.y + 1.3, prop.mesh.position.z);
-                    }
-                });
-
-                if (grabbedObj) {
-                    const targetPos = new THREE.Vector3(0, 0, -1).applyEuler(playerEuler).multiplyScalar(grabDistance).add(camera.position);
-                    
-                    if (!grabIsPlayer) {
-                        grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z); grabbedObj.body.velocity.set(0,0,0);
-                    } else {
-                        if (networkPlayers[grabbedPlayerId]) {
-                            grabbedObj.group.position.set(targetPos.x, targetPos.y - 0.9, targetPos.z);
-                            update(ref(db, `rooms/${roomId}/players/${grabbedPlayerId}`), { x: targetPos.x, y: targetPos.y, z: targetPos.z, dirX: 0, dirY: 0, dirZ: 0 });
-                        } else {
-                            grabbedObj = null; grabbedPlayerId = null; grabIsPlayer = false; beamLine.visible = false;
-                        }
-                    }
-                    
-                    if (grabbedObj) {
-                        const positions = beamLine.geometry.attributes.position.array;
-                        const gunTipPos = new THREE.Vector3(0.25, -0.22, -0.6).applyQuaternion(camera.quaternion).add(camera.position);
-                        positions[0] = gunTipPos.x; positions[1] = gunTipPos.y; positions[2] = gunTipPos.z; 
-                        positions[3] = targetPos.x; positions[4] = targetPos.y; positions[5] = targetPos.z;
-                        beamLine.geometry.attributes.position.needsUpdate = true; beamLine.visible = true;
-                    }
-                }
-
-                if (controls.isLocked) {
-                    inputDirection.z = Number(moveForward) - Number(moveBackward); inputDirection.x = Number(moveRight) - Number(moveLeft); inputDirection.normalize();
-                    let camTarget = new THREE.Vector3(0, 0, -1).applyEuler(playerEuler); if (!isFlying) camTarget.y = 0; camTarget.normalize();
-                    const camRight = new THREE.Vector3().crossVectors(camTarget, new THREE.Vector3(0,1,0)).normalize(), moveVector = new THREE.Vector3();
-                    const movementSpeed = isFlying ? 22.0 : 16.0; 
-                    moveVector.addScaledVector(camTarget, inputDirection.z * movementSpeed); moveVector.addScaledVector(camRight, inputDirection.x * movementSpeed);
-                    playerBody.velocity.x = moveVector.x; playerBody.velocity.z = moveVector.z;
-                    if (isFlying && !spacePressed && !moveForward && !moveBackward && !moveLeft && !moveRight) playerBody.velocity.y = 0;
-
-                    update(playerRef, { 
-                        name: username, color: avatarColor, isAdminStatus: isAdmin, 
-                        x: playerBody.position.x, y: playerBody.position.y + 0.5, z: playerBody.position.z,
-                        dirX: lookDir.x, dirY: lookDir.y, dirZ: lookDir.z
-                    });
-                }
+            if (grabbedObj) {
+                const targetPos = new THREE.Vector3(0, 0, -1).applyEuler(playerEuler).multiplyScalar(grabDistance).add(camera.position);
+                grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z); 
+                grabbedObj.body.velocity.set(0, 0, 0);
             }
+
+            if (controls.isLocked) {
+                inputDirection.z = Number(moveForward) - Number(moveBackward); inputDirection.x = Number(moveRight) - Number(moveLeft); inputDirection.normalize();
+                let camTarget = new THREE.Vector3(0, 0, -1).applyEuler(playerEuler); if (!isFlying) camTarget.y = 0; camTarget.normalize();
+                const camRight = new THREE.Vector3().crossVectors(camTarget, new THREE.Vector3(0,1,0)).normalize(), moveVector = new THREE.Vector3();
+                moveVector.addScaledVector(camTarget, inputDirection.z * 16); moveVector.addScaledVector(camRight, inputDirection.x * 16);
+                playerBody.velocity.x = moveVector.x; playerBody.velocity.z = moveVector.z;
+
+                update(playerRef, { 
+                    name: username, color: avatarColor, isAdminStatus: isAdmin, 
+                    x: playerBody.position.x, y: playerBody.position.y + 0.5, z: playerBody.position.z,
+                    dirX: camTarget.x, dirY: camera.getWorldDirection(new THREE.Vector3()).y, dirZ: camTarget.z
+                });
+            }
+
             renderer.render(scene, camera); labelRenderer.render(scene, camera); 
         }
         animate();
