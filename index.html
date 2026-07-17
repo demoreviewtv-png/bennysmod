@@ -33,7 +33,7 @@
             padding: 15px; text-align: left; border-radius: 6px;
             overflow-x: auto; white-space: pre-wrap; font-size: 13px;
             margin: 15px 0; border: 1px solid #333; max-height: 200px;
-            user-select: text; /* Ensures manual highlighters can select text too */
+            user-select: text;
         }
         .crash-btn-container {
             display: flex; gap: 10px; justify-content: center; margin-top: 15px;
@@ -394,15 +394,14 @@
             envRef = ref(db, `rooms/${roomId}/environment`);
             adminRef = ref(db, `rooms/${roomId}/admin`);
 
+            // Corrected disconnection behavior
             onDisconnect(playerRef).remove();
             
-            onDisconnect(ref(db, `rooms/${roomId}/players`)).then(() => {
-                onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
-                    if (snap.exists() && Object.keys(snap.val()).length <= 1) {
-                        remove(roomRef);
-                    }
-                }, { onlyOnce: true });
-            });
+            onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
+                if (snap.exists() && Object.keys(snap.val()).length <= 1) {
+                    remove(roomRef);
+                }
+            }, { onlyOnce: true });
 
             onValue(ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`), (snapshot) => {
                 if (snapshot.val()) {
