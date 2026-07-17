@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Benny's Mod Sandbox - Fixed Video Mapping</title>
+    <title>Benny's Mod Sandbox - Ultimate Master Engine</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; user-select: none; }
         
@@ -36,22 +36,12 @@
             flex: 1; overflow-y: auto; background: #111; border: 1px solid #333;
             border-radius: 6px; padding: 5px; margin-top: 10px;
         }
-        .room-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 8px; background: #222; margin-bottom: 5px; border-radius: 4px;
-            font-size: 13px; border-left: 3px solid #21a03c;
-        }
-        .room-item button {
-            background: #21a03c; color: white; border: none; padding: 4px 8px;
-            border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold;
-        }
-        .no-rooms { text-align: center; color: #777; font-size: 13px; margin-top: 20px; }
         
         .menu-box label { font-size: 13px; color: #aaa; font-weight: 500; }
         .menu-box input, .menu-box select, .menu-box button { padding: 10px; border-radius: 6px; border: none; font-size: 15px; }
         .menu-box input, .menu-box select { background: #222; color: white; border: 1px solid #555; }
         .menu-box button { background: #21a03c; color: white; font-weight: bold; cursor: pointer; }
-        .update-pill { background: #21a03c; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: bold; align-self: flex-start; margin-top: -5px; }
+        .update-pill { background: #9b59b6; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: bold; align-self: flex-start; margin-top: -5px; }
 
         #spawn-menu {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -65,6 +55,7 @@
         .spawn-btn.active { background: #21a03c; }
         .spawn-btn.food { background: #d47a22; }
         .spawn-btn.utility { background: #8e44ad; }
+        .spawn-btn.appliance { background: #e67e22; }
         .admin-btn { padding: 10px; background: #b83232; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
         
         #player-list-panel {
@@ -79,22 +70,14 @@
         .username-tag { color: white; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 14px; pointer-events: none; white-space: nowrap; border: 1px solid rgba(255,255,255,0.2); }
         #instructions { position: absolute; bottom: 20px; left: 20px; color: white; background: rgba(0,0,0,0.7); padding: 12px; border-radius: 5px; pointer-events: none; font-size: 13px; display: none; }
         
-        /* Absolute strict pixel sizing matching the 3D Object plane dimensions */
         .video-player-frame {
             width: 640px;
             height: 360px;
             background: #000;
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            border: none;
+            margin: 0; padding: 0;
+            box-sizing: border-box; border: none;
         }
-        .video-player-frame iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
+        .video-player-frame iframe { width: 100%; height: 100%; border: none; display: block; }
     </style>
 </head>
 <body>
@@ -102,7 +85,7 @@
     <div id="start-screen">
         <div class="menu-box">
             <h2>Benny's Mod Sandbox</h2>
-            <div class="update-pill">VIDEO FIX MAT_BLENDING</div>
+            <div class="update-pill">LOCAL PERSISTENCE FIX</div>
             
             <label>Username</label>
             <input type="text" id="username-input">
@@ -166,12 +149,12 @@
         </div>
 
         <div class="menu-section">
-            <h4>Interactive Tools & Gear</h4>
+            <h4>Interactive Tools, Gear & Appliances</h4>
             <div class="grid">
                 <button class="spawn-btn utility" onclick="selectProp('frisbee', this)">🥏 Frisbee</button>
                 <button class="spawn-btn utility" onclick="selectProp('pickaxe', this)">⛏️ Pickaxe</button>
-                <button class="spawn-btn utility" onclick="selectProp('paintbucket', this)">🪣 Paint Bucket</button>
                 <button class="spawn-btn food" onclick="selectProp('taco', this)">🌮 Taco</button>
+                <button class="spawn-btn appliance" onclick="selectProp('microwave', this)">📟 Microwave</button>
             </div>
             <div class="grid" style="margin-top:8px;">
                 <button class="spawn-btn" style="grid-column: span 4; background: #cc2222; color: white;" onclick="selectProp('youtube', this)">📺 YouTube Monitor Frame</button>
@@ -186,10 +169,10 @@
 
     <div id="instructions">
         <strong>Controls:</strong><br>
-        • Click screen anywhere to re-lock view (WASD to move, Space to Jump)<br>
+        • Click screen anywhere to lock mouse view (WASD to move, Space to Jump)<br>
         • Hold <strong>Q</strong> to view spawn dashboard<br>
         • Left-Click to drop selected object (1s Cooldown applied)<br>
-        • Right-Click & Hold to Grab/Manipulate objects
+        • Right-Click & Hold to Drag / Swing-Throw physics objects
     </div>
 
     <script type="importmap">
@@ -234,7 +217,18 @@
         const SPAWN_COOLDOWN_MS = 1000; 
 
         const startBtn = document.getElementById('start-btn');
-        document.getElementById('username-input').value = "Player_" + Math.floor(100 + Math.random() * 900);
+        
+        // FIXED PERSISTENCE ENGINE: Check if username and design are already cached in storage
+        if (localStorage.getItem('bennysmod_username')) {
+            document.getElementById('username-input').value = localStorage.getItem('bennysmod_username');
+        } else {
+            document.getElementById('username-input').value = "Player_" + Math.floor(100 + Math.random() * 900);
+        }
+
+        if (localStorage.getItem('bennysmod_avatar')) {
+            document.getElementById('avatar-input').value = localStorage.getItem('bennysmod_avatar');
+        }
+
         playerId = Math.random().toString(36).substring(2, 9);
 
         const scene = new THREE.Scene();
@@ -245,7 +239,6 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Core fix: CSS3D elements need their own DOM layer processing but pointer-events must let click locks loop through perfectly
         const css3dRenderer = new CSS3DRenderer();
         css3dRenderer.setSize(window.innerWidth, window.innerHeight);
         css3dRenderer.domElement.style.position = 'absolute';
@@ -261,21 +254,25 @@
         document.body.appendChild(css2dRenderer.domElement);
 
         const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -22, 0) });
-
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(10, 30, 10);
-        scene.add(dirLight);
+        const groundMaterial = new CANNON.Material('groundMaterial');
+        const playerMaterial = new CANNON.Material('playerMaterial');
+        
+        const contactMaterial = new CANNON.ContactMaterial(playerMaterial, groundMaterial, {
+            friction: 0.0, 
+            restitution: 0.0
+        });
+        world.addContactMaterial(contactMaterial);
 
         const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x22222b }));
         groundMesh.rotation.x = -Math.PI / 2;
         scene.add(groundMesh);
-        const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+        const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: groundMaterial });
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
         world.addBody(groundBody);
 
-        const playerBody = new CANNON.Body({ mass: 70, shape: new CANNON.Cylinder(0.6, 0.6, 2, 8), fixedRotation: true });
+        const playerBody = new CANNON.Body({ mass: 70, shape: new CANNON.Cylinder(0.6, 0.6, 2, 8), fixedRotation: true, material: playerMaterial });
         playerBody.position.set(0, 3, 5);
+        playerBody.linearDamping = 0.1; 
         world.addBody(playerBody);
 
         const controls = new PointerLockControls(camera, renderer.domElement);
@@ -284,11 +281,13 @@
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
         const props = {}, networkPlayers = {};
         let currentPropType = 'cube';
-        let grabbedObj = null, grabDistance = 4;
+        
+        let grabbedObj = null, grabDistance = 5;
+        let lastGrabbedPos = new CANNON.Vec3();
+        let grabbedVelocity = new CANNON.Vec3();
         const raycaster = new THREE.Raycaster();
 
-        // Robust viewport clicking fallback setup
-        window.addEventListener('click', (e) => {
+        window.addEventListener('click', () => {
             if (gameActive && menu.style.display !== 'block') {
                 controls.lock();
             }
@@ -300,10 +299,38 @@
             element.classList.add('active');
         };
 
+        function createFaceTexture(colorHex) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = colorHex;
+            ctx.fillRect(0, 0, 128, 128);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(28, 35, 22, 22);
+            ctx.fillRect(78, 35, 22, 22);
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(34, 41, 10, 10);
+            ctx.fillRect(84, 41, 10, 10);
+            
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(64, 75, 22, 0, Math.PI, false);
+            ctx.stroke();
+            
+            return new THREE.CanvasTexture(canvas);
+        }
+
         startBtn.addEventListener('click', () => {
             username = document.getElementById('username-input').value.trim() || "Player";
-            avatarColor = parseInt(document.getElementById('avatar-input').value);
+            avatarColor = document.getElementById('avatar-input').value;
             roomId = document.getElementById('room-input').value.trim().toLowerCase() || "global";
+
+            // SAVE ENGINE HOOKS: Store username variables persistently inside browser cache
+            localStorage.setItem('bennysmod_username', username);
+            localStorage.setItem('bennysmod_avatar', avatarColor);
 
             roomRef = ref(db, `rooms/${roomId}`);
             playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
@@ -351,11 +378,24 @@
                     
                     if (!networkPlayers[id]) {
                         const group = new THREE.Group();
-                        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: data[id].color || 0xff0000 }));
+                        
+                        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }));
                         torso.position.y = 0.6;
-                        const head = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 12), new THREE.MeshStandardMaterial({ color: 0xffeecc }));
-                        head.position.y = 1.3;
-                        group.add(torso, head);
+                        
+                        const headGeom = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+                        const faceTex = createFaceTexture(data[id].color || "#ff3333");
+                        const headMaterials = [
+                            new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }), 
+                            new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }), 
+                            new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }), 
+                            new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }), 
+                            new THREE.MeshStandardMaterial({ map: faceTex }),                               
+                            new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) })  
+                        ];
+                        const headMesh = new THREE.Mesh(headGeom, headMaterials);
+                        headMesh.position.y = 1.4;
+                        
+                        group.add(torso, headMesh);
 
                         const nameDiv = document.createElement('div');
                         nameDiv.className = 'username-tag';
@@ -399,39 +439,35 @@
                 handle.rotation.z = Math.PI / 2;
                 mesh.add(handle);
                 shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.2, 0.1));
-            } else if (val.type === 'paintbucket') {
-                mesh.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.6, 12), new THREE.MeshStandardMaterial({ color: 0xdddddd })));
-                shape = new CANNON.Cylinder(0.3, 0.3, 0.6, 12);
             } else if (val.type === 'taco') {
                 const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.2, 12, 1, false, 0, Math.PI), new THREE.MeshStandardMaterial({ color: 0xeedaa2, side: THREE.DoubleSide }));
                 shell.rotation.x = Math.PI / 2;
                 mesh.add(shell);
                 shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.2, 0.2));
+            } else if (val.type === 'microwave') {
+                const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+                const screenMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.02), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+                screenMesh.position.set(0.4, 0, 0.41);
+                const glassMesh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.02), new THREE.MeshStandardMaterial({ color: 0x22ffaa, transparent: true, opacity: 0.4 }));
+                glassMesh.position.set(-0.1, 0, 0.41);
+                mesh.add(bodyMesh, screenMesh, glassMesh);
+                shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.4, 0.4));
             } else if (val.type === 'youtube') {
-                // FIXED VIDEO MAPPING: The CSS3D DOM element is paired 1-to-1 with a real backing mesh plane
-                // This shields it from clipping, scaling incorrectly, or floating independently of physics
                 const width = 3.2;
                 const height = 1.8;
                 
-                // 1. Backing Material Plate
                 const planeGeom = new THREE.PlaneGeometry(width, height);
-                const planeMat = new THREE.MeshStandardMaterial({ 
-                    color: 0x000000, 
-                    side: THREE.DoubleSide,
-                    roughness: 0.4
-                });
+                const planeMat = new THREE.MeshStandardMaterial({ color: 0x000000, side: THREE.DoubleSide, roughness: 0.4 });
                 const backingMesh = new THREE.Mesh(planeGeom, planeMat);
                 mesh.add(backingMesh);
 
-                // 2. Exact Scale matched CSS3D DOM Overlay anchored directly inside group matrix
                 const frameElement = document.createElement('div');
                 frameElement.className = 'video-player-frame';
                 frameElement.innerHTML = `<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" allowfullscreen></iframe>`;
                 
                 const object3d = new CSS3DObject(frameElement);
-                // Matching pixel scale: 640px wide * 0.005 units/pixel = 3.2 WebGL units wide
                 object3d.scale.set(0.005, 0.005, 0.005); 
-                object3d.position.z = 0.01; // Tiny offset directly on surface to fix screen clipping
+                object3d.position.z = 0.01; 
                 mesh.add(object3d);
                 
                 shape = new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, 0.05));
@@ -470,7 +506,11 @@
                     let hit = intersects[0].object;
                     while (hit.parent && hit.parent.type !== "Scene") { hit = hit.parent; }
                     grabbedObj = Object.values(props).find(p => p.mesh === hit);
-                    if (grabbedObj) grabbedObj.body.mass = 0;
+                    if (grabbedObj) {
+                        grabbedObj.body.mass = 0;
+                        grabbedObj.body.updateMassProperties();
+                        lastGrabbedPos.copy(grabbedObj.body.position);
+                    }
                 }
             }
         });
@@ -479,6 +519,8 @@
             if (e.button === 2 && grabbedObj) {
                 grabbedObj.body.mass = 5;
                 grabbedObj.body.updateMassProperties();
+                
+                grabbedObj.body.velocity.copy(grabbedVelocity).scale(1.6); 
                 grabbedObj = null;
             }
         });
@@ -488,7 +530,7 @@
             if (e.code === 'KeyS') moveBackward = true;
             if (e.code === 'KeyA') moveLeft = true;
             if (e.code === 'KeyD') moveRight = true;
-            if (e.code === 'Space' && Math.abs(playerBody.velocity.y) < 0.05) playerBody.velocity.y = 8;
+            if (e.code === 'Space' && Math.abs(playerBody.velocity.y) < 0.1) playerBody.velocity.y = 8;
             if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
         });
 
@@ -522,12 +564,21 @@
             if (grabbedObj) {
                 const target = new THREE.Vector3(0, 0, -grabDistance).applyQuaternion(camera.quaternion).add(camera.position);
                 grabbedObj.body.position.set(target.x, target.y, target.z);
-                grabbedObj.body.velocity.set(0,0,0);
+                
+                if (delta > 0) {
+                    grabbedVelocity.x = (grabbedObj.body.position.x - lastGrabbedPos.x) / delta;
+                    grabbedVelocity.y = (grabbedObj.body.position.y - lastGrabbedPos.y) / delta;
+                    grabbedVelocity.z = (grabbedObj.body.position.z - lastGrabbedPos.z) / delta;
+                }
+                
+                grabbedObj.body.velocity.set(0, 0, 0);
+                lastGrabbedPos.copy(grabbedObj.body.position);
             }
 
             if (controls.isLocked) {
                 const moveVec = new THREE.Vector3(Number(moveRight) - Number(moveLeft), 0, Number(moveBackward) - Number(moveForward)).normalize();
                 moveVec.applyQuaternion(camera.quaternion);
+                
                 playerBody.velocity.x = moveVec.x * 12;
                 playerBody.velocity.z = moveVec.z * 12;
 
