@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Benny's Mod Sandbox - Advanced Networking</title>
+    <title>Benny's Mod Sandbox - Fixed Synced Physics Update</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; user-select: none; }
         
@@ -111,7 +111,24 @@
         .admin-tag { color: #ff3333; font-size: 11px; font-weight: bold; display: block; text-align: center; margin-top: 1px;}
         #instructions { position: absolute; bottom: 20px; left: 20px; color: white; background: rgba(0,0,0,0.7); padding: 12px; border-radius: 5px; pointer-events: none; font-size: 13px; display: none; }
         
-        .youtube-screen-container { border: 4px solid #333; background: #000; border-radius: 8px; overflow: hidden; pointer-events: auto !important; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        .youtube-screen-container { 
+            border: 4px solid #333; 
+            background: #000; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            pointer-events: auto !important; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            width: 640px !important;
+            height: 360px !important;
+            box-sizing: border-box;
+        }
+
+        #private-upload-container {
+            margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.05);
+            border: 1px dashed #555; border-radius: 6px; display: none;
+        }
+        #private-upload-container label { display: block; margin-bottom: 5px; font-weight: bold; color: #00ffff; }
+        #glb-file-input { font-size: 12px; color: #ccc; }
     </style>
 </head>
 <body>
@@ -147,7 +164,7 @@
     <div id="start-screen">
         <div class="menu-box">
             <h2 style="margin-bottom:0px;">Benny's Mod Sandbox</h2>
-            <div class="update-pill">MULTIMEDIA & PERSPECTIVES UPDATE</div>
+            <div class="update-pill">REALTIME OBJECT SYNC MOD</div>
             
             <label>Username</label>
             <input type="text" id="username-input">
@@ -157,8 +174,8 @@
                 <option value="0xff3333">Red Android (With Visor & Legs)</option>
                 <option value="0x33ff33">Green Cyber-Suit (With Visor & Legs)</option>
                 <option value="0x3333ff">Blue Guardian (With Visor & Legs)</option>
-                <option value="0xd4af37">Gold Prestige Armor (New)</option>
-                <option value="0x4b0082">Void Infiltrator (New)</option>
+                <option value="0xd4af37">Gold Prestige Armor</option>
+                <option value="0x4b0082">Void Infiltrator</option>
             </select>
 
             <div class="flex-row">
@@ -217,6 +234,11 @@
                 <button class="spawn-btn appliance" style="flex:1;" onclick="selectProp('microwave', this)">📟 Microwave Oven</button>
                 <button class="spawn-btn appliance" style="flex:1; background: #cc2222;" onclick="selectProp('youtube', this)">📺 YouTube Player</button>
             </div>
+            
+            <div id="private-upload-container">
+                <label>🛠️ Private Instance GLB Injector</label>
+                <input type="file" id="glb-file-input" accept=".glb">
+            </div>
         </div>
 
         <div class="menu-section">
@@ -254,7 +276,7 @@
         • Press <strong>J</strong> to cycle <strong>1st / 2nd (Front) / 3rd Person Views</strong><br>
         • Hold <strong>Q</strong> to open Spawn Menu & Options<br>
         • Left-Click to spawn selected prop<br>
-        • Right-Click & Hold to <strong>Grab Objects / Other Players</strong><br>
+        • Right-Click & Hold <strong>Portal Gun</strong> to Grab Objects / Other Players<br>
         • Release Right-Click while flicking to <strong>Throw (GMod Style)</strong>
     </div>
 
@@ -272,10 +294,11 @@
 
     <script type="module">
         import { initializeApp } from "firebase/app";
-        import { getDatabase, ref, set, update, onValue, onChildAdded, onChildRemoved, remove, onDisconnect, get } from "firebase/database";
+        import { getDatabase, ref, set, update, onValue, onChildAdded, onChildRemoved, onChildChanged, remove, onDisconnect, get } from "firebase/database";
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import * as CANNON from 'cannon-es';
 
         const firebaseConfig = {
@@ -293,8 +316,11 @@
         const db = getDatabase(app);
 
         let roomId, playerId, username, avatarColor, isPublicRoom;
-        let playerRef, propsRef, envRef, adminRef, roomRef, roomPublicRegistrationRef, banRef;
+        let playerRef, propsRef, envRef, adminRef, roomRef, roomPublicRegistrationRef, banRef, youtubeStateRef;
         let gameActive = false, isAdmin = false;
+
+        let lastSpawnTime = 0;
+        const SPAWN_COOLDOWN_MS = 600; 
 
         const startBtn = document.getElementById('start-btn');
         startBtn.innerText = "LAUNCH GAME";
@@ -375,6 +401,22 @@
         playerBody.position.set(0, 3, 5);
         world.addBody(playerBody);
 
+        const portalGunGroup = new THREE.Group();
+        const mainBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.4, 12), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }));
+        mainBarrel.rotation.x = Math.PI / 2;
+        const gunBodyObj = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+        gunBodyObj.position.z = 0.2;
+        const coreGlow = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.15, 8), new THREE.MeshStandardMaterial({ color: 0x00bcff, emissive: 0x00bcff }));
+        coreGlow.rotation.x = Math.PI / 2;
+        coreGlow.position.z = 0.05;
+        
+        const clawMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 });
+        const claw1 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.02), clawMat); claw1.position.set(0, 0.09, -0.15);
+        const claw2 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.02), clawMat); claw2.position.set(0.07, -0.06, -0.15);
+        const claw3 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.02), clawMat); claw3.position.set(-0.07, -0.06, -0.15);
+        portalGunGroup.add(mainBarrel, gunBodyObj, coreGlow, claw1, claw2, claw3);
+        scene.add(portalGunGroup);
+
         const localAvatarGroup = new THREE.Group();
         const localTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.0, 10), new THREE.MeshStandardMaterial({ color: 0xff3333 }));
         localTorso.position.y = 0.9;
@@ -389,7 +431,7 @@
         scene.add(localAvatarGroup);
         localAvatarGroup.visible = false; 
 
-        const beamLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 3 }));
+        const beamLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x00ffcc, linewidth: 4 }));
         beamLine.visible = false;
         scene.add(beamLine);
 
@@ -398,6 +440,7 @@
 
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, spacePressed = false, canJump = false, isFlying = false;
         let viewMode = 0; 
+        let spaceWasReleased = true;
         const inputDirection = new THREE.Vector3();
         const raycaster = new THREE.Raycaster();
         let grabbedObj = null, grabDistance = 0, grabIsPlayer = false, grabbedPlayerId = null;
@@ -429,6 +472,10 @@
 
             localStorage.setItem('bm_saved_username', username);
 
+            if (!isPublicRoom) {
+                document.getElementById('private-upload-container').style.display = 'block';
+            }
+
             roomRef = ref(db, `rooms/${roomId}`);
             playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
             propsRef = ref(db, `rooms/${roomId}/props`);
@@ -436,6 +483,7 @@
             adminRef = ref(db, `rooms/${roomId}/admin`);
             banRef = ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`);
             roomPublicRegistrationRef = ref(db, `public_rooms/${roomId}`);
+            youtubeStateRef = ref(db, `rooms/${roomId}/youtube_state`);
 
             onValue(banRef, (snapshot) => {
                 if (snapshot.val()) {
@@ -457,6 +505,40 @@
                 controls.lock();
                 gameActive = true;
             }, 450);
+        });
+
+        document.getElementById('glb-file-input').addEventListener('change', (e) => {
+            if (isPublicRoom) return; 
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const contents = event.target.result;
+                const loader = new GLTFLoader();
+                loader.parse(contents, '', (gltf) => {
+                    const customModelGroup = gltf.scene;
+                    const targetPos = new THREE.Vector3();
+                    camera.getWorldDirection(targetPos).multiplyScalar(4).add(camera.position);
+                    const customPropId = "glb_" + Math.random().toString(36).substring(2, 9);
+                    
+                    set(ref(db, `rooms/${roomId}/props/${customPropId}`), { 
+                        type: 'cube', 
+                        x: targetPos.x, y: targetPos.y, z: targetPos.z,
+                        rx: 0, ry: 0, rz: 0, rw: 1,
+                        lastInteractedBy: playerId
+                    });
+
+                    setTimeout(() => {
+                        if (props[customPropId]) {
+                            props[customPropId].mesh.clear();
+                            props[customPropId].mesh.add(customModelGroup);
+                        }
+                    }, 200);
+
+                }, (err) => { console.error("Error evaluating GLB model:", err); });
+            };
+            reader.readAsArrayBuffer(file);
         });
 
         function setupMultiplayerListeners() {
@@ -607,7 +689,26 @@
 
             onChildAdded(propsRef, (snapshot) => {
                 const id = snapshot.key; if (props[id]) return;
-                createLocalProp(id, snapshot.val().type, snapshot.val().x, snapshot.val().y, snapshot.val().z);
+                const val = snapshot.val();
+                createLocalProp(id, val.type, val.x, val.y, val.z);
+                if (val.rx !== undefined && props[id]) {
+                    props[id].body.quaternion.set(val.rx, val.ry, val.rz, val.rw);
+                }
+            });
+
+            // --- Realtime Modification Remap Node ---
+            onChildChanged(propsRef, (snapshot) => {
+                const id = snapshot.key;
+                const val = snapshot.val();
+                if (props[id] && val && val.lastInteractedBy !== playerId) {
+                    // Overrides physics parameters if another client is moving the prop
+                    props[id].body.position.set(val.x, val.y, val.z);
+                    if (val.rx !== undefined) {
+                        props[id].body.quaternion.set(val.rx, val.ry, val.rz, val.rw);
+                    }
+                    props[id].body.velocity.set(0, 0, 0);
+                    props[id].body.angularVelocity.set(0, 0, 0);
+                }
             });
 
             onChildRemoved(propsRef, (snapshot) => {
@@ -619,11 +720,28 @@
                     delete props[id]; 
                 }
             });
+
+            onValue(youtubeStateRef, (snapshot) => {
+                const val = snapshot.val();
+                const ytIframe = document.getElementById('global-yt-iframe');
+                if (ytIframe && val && val.videoId) {
+                    const elapsed = Math.floor((Date.now() - val.startedAt) / 1000);
+                    const parsedSrc = `https://www.youtube.com/embed/${val.videoId}?autoplay=1&start=${elapsed}&controls=0&rel=0`;
+                    if (!ytIframe.src.includes(val.videoId) || Math.abs(elapsed - new URLSearchParams(new URL(ytIframe.src).search).get('start')) > 4) {
+                        ytIframe.src = parsedSrc;
+                    }
+                }
+            });
         }
 
         document.getElementById('skybox-select').addEventListener('change', (e) => { if (gameActive) set(ref(db, `rooms/${roomId}/environment/skybox`), e.target.value); });
         document.getElementById('ground-select').addEventListener('change', (e) => { if (gameActive) set(ref(db, `rooms/${roomId}/environment/ground`), e.target.value); });
-        document.getElementById('clear-room-btn').addEventListener('click', () => { if (isAdmin) remove(propsRef); });
+        document.getElementById('clear-room-btn').addEventListener('click', () => { 
+            if (isAdmin) {
+                remove(propsRef);
+                remove(youtubeStateRef);
+            }
+        });
 
         document.addEventListener('keydown', (e) => {
             if (!gameActive) return;
@@ -631,7 +749,9 @@
             if (e.code === 'KeyS') moveBackward = true;
             if (e.code === 'KeyA') moveLeft = true;
             if (e.code === 'KeyD') moveRight = true;
-            if (e.code === 'Space') spacePressed = true;
+            if (e.code === 'Space') {
+                spacePressed = true;
+            }
             if (e.code === 'KeyC' && isFlying) {
                 playerBody.velocity.y = -12.0;
             }
@@ -652,7 +772,10 @@
             if (e.code === 'KeyS') moveBackward = false;
             if (e.code === 'KeyA') moveLeft = false;
             if (e.code === 'KeyD') moveRight = false;
-            if (e.code === 'Space') spacePressed = false;
+            if (e.code === 'Space') {
+                spacePressed = false;
+                spaceWasReleased = true; 
+            }
             if ((e.code === 'Space' || e.code === 'KeyC') && isFlying) {
                 playerBody.velocity.y = 0;
             }
@@ -663,6 +786,12 @@
             }
         });
 
+        function parseYouTubeId(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : "dQw4w9WgXcQ";
+        }
+
         function createLocalProp(id, type, x, y, z) {
             let mesh = new THREE.Group(), shape, domLabel = null;
             
@@ -670,11 +799,9 @@
                 const shellGeo = new THREE.TorusGeometry(0.4, 0.1, 12, 24, Math.PI);
                 const shellMat = new THREE.MeshStandardMaterial({ color: 0xf3ca40, roughness: 0.5 }); 
                 const shell = new THREE.Mesh(shellGeo, shellMat); shell.rotation.x = Math.PI; mesh.add(shell);
-                
                 const beefGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.6, 8);
                 const beefMat = new THREE.MeshStandardMaterial({ color: 0x5c3d2e });
                 const beef = new THREE.Mesh(beefGeo, beefMat); beef.rotation.z = Math.PI / 2; beef.position.y = -0.05; mesh.add(beef);
-
                 const lettuceMat = new THREE.MeshStandardMaterial({ color: 0x44aa22 });
                 const tomatoMat = new THREE.MeshStandardMaterial({ color: 0xdd2211 });
                 for(let i=0; i<6; i++) {
@@ -683,60 +810,41 @@
                     topping.position.set((Math.random()-0.5)*0.5, 0, (Math.random()-0.5)*0.1); mesh.add(topping);
                 }
                 shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.3, 0.2));
-
             } else if (type === 'burger') {
                 const bunMat = new THREE.MeshStandardMaterial({ color: 0xdd9955, roughness: 0.6 });
                 const meatMat = new THREE.MeshStandardMaterial({ color: 0x553311, roughness: 0.9 });
                 const cheeseMat = new THREE.MeshStandardMaterial({ color: 0xffcc00 });
-
                 const bottomBun = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.1, 12), bunMat); bottomBun.position.y = 0.05; mesh.add(bottomBun);
                 const patty = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.08, 12), meatMat); patty.position.y = 0.14; mesh.add(patty);
                 const cheese = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.36), cheeseMat); cheese.position.y = 0.19; mesh.add(cheese);
                 const topBun = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12, 0, Math.PI*2, 0, Math.PI/2), bunMat); topBun.position.y = 0.2; mesh.add(topBun);
-                
                 shape = new CANNON.Cylinder(0.38, 0.38, 0.4, 8);
-
             } else if (type === 'pizza') {
                 const crustMat = new THREE.MeshStandardMaterial({ color: 0xd27d2d, roughness: 0.7 });
                 const cheeseMat = new THREE.MeshStandardMaterial({ color: 0xffd700 });
                 const pepMat = new THREE.MeshStandardMaterial({ color: 0xb22222 });
-
                 const sliceBase = new THREE.Group();
                 const cheeseMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.04, 24, 1, false, 0, Math.PI / 3), cheeseMat);
-                cheeseMesh.rotation.x = Math.PI / 2;
-                cheeseMesh.position.set(0, 0, 0);
-                sliceBase.add(cheeseMesh);
-
+                cheeseMesh.rotation.x = Math.PI / 2; sliceBase.add(cheeseMesh);
                 const crustMesh = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.05, 8, 16, Math.PI / 3), crustMat);
-                crustMesh.position.set(0, 0, 0.01);
-                sliceBase.add(crustMesh);
-
+                crustMesh.position.set(0, 0, 0.01); sliceBase.add(crustMesh);
                 for (let i = 0; i < 4; i++) {
                     const pep = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.01, 8), pepMat);
-                    pep.rotation.x = Math.PI / 2;
-                    const radius = 0.2 + Math.random() * 0.25;
-                    const angle = Math.random() * (Math.PI / 3);
-                    pep.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0.025);
-                    sliceBase.add(pep);
+                    pep.rotation.x = Math.PI / 2; const radius = 0.2 + Math.random() * 0.25; const angle = Math.random() * (Math.PI / 3);
+                    pep.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, 0.025); sliceBase.add(pep);
                 }
-
-                sliceBase.rotation.x = -Math.PI / 2; 
-                mesh.add(sliceBase);
+                sliceBase.rotation.x = -Math.PI / 2; mesh.add(sliceBase);
                 shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.06, 0.4));
-
             } else if (type === 'fries') {
                 const cupMat = new THREE.MeshStandardMaterial({ color: 0xcc2222 });
                 const fryMat = new THREE.MeshStandardMaterial({ color: 0xffdd44, roughness: 0.5 });
-
                 const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.18, 0.4, 10), cupMat); cup.position.y = 0.2; mesh.add(cup);
                 for(let i = 0; i < 12; i++) {
                     const fry = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.35, 0.04), fryMat);
-                    fry.position.set((Math.random()-0.5)*0.2, 0.35, (Math.random()-0.5)*0.2);
-                    fry.rotation.set((Math.random()-0.5)*0.3, 0, (Math.random()-0.5)*0.3);
+                    fry.position.set((Math.random()-0.5)*0.2, 0.35, (Math.random()-0.5)*0.2); fry.rotation.set((Math.random()-0.5)*0.3, 0, (Math.random()-0.5)*0.3);
                     mesh.add(fry);
                 }
                 shape = new CANNON.Box(new CANNON.Vec3(0.25, 0.35, 0.25));
-
             } else if (type === 'microwave') {
                 const mainBody = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4 }));
                 const windowPane = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.02), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1, transparent: true, opacity: 0.7 }));
@@ -747,25 +855,17 @@
                 screen.position.set(0.4, 0.18, 0.403);
                 mesh.add(mainBody, windowPane, panel, screen);
                 shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.4, 0.4));
-
             } else if (type === 'youtube') {
                 const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 12), new THREE.MeshStandardMaterial({ color: 0x222222 }));
                 stand.position.y = 0.25;
-                const frame = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.0, 0.15), new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.5 }));
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.1, 0.15), new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.5 }));
                 frame.position.y = 1.3;
                 mesh.add(stand, frame);
-
                 const container = document.createElement('div');
                 container.className = 'youtube-screen-container';
-                container.style.width = '480px';
-                container.style.height = '270px';
-                container.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/dQw4w9WgXcQ" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
-                
-                domLabel = new CSS2DObject(container);
-                domLabel.position.set(x, y + 1.3, z);
-                scene.add(domLabel);
-
-                shape = new CANNON.Box(new CANNON.Vec3(1.7, 1.1, 0.3));
+                container.innerHTML = `<iframe id="global-yt-iframe" width="100%" height="100%" src="about:blank" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" style="width:100%; height:100%; border:none; display:block;"></iframe>`;
+                domLabel = new CSS2DObject(container); domLabel.position.set(x, y + 1.3, z); scene.add(domLabel);
+                shape = new CANNON.Box(new CANNON.Vec3(1.8, 1.1, 0.3));
             } else if (type === 'cube') { 
                 const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.2 }));
                 mesh.add(boxMesh); shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.6)); 
@@ -791,11 +891,46 @@
 
         window.addEventListener('mousedown', (e) => {
             if (!controls.isLocked || !gameActive) return;
+            
             if (e.button === 0) { 
+                const now = Date.now();
+                if (now - lastSpawnTime < SPAWN_COOLDOWN_MS) return; 
+                lastSpawnTime = now;
+
+                if (currentPropType === 'youtube') {
+                    const existingYt = Object.values(props).find(p => p.type === 'youtube');
+                    if (existingYt) {
+                        alert("A synced video player panel already exists inside this server layout!");
+                        return;
+                    }
+                    
+                    controls.unlock();
+                    const urlInput = prompt("Enter a valid YouTube URL or Video Identifier String:");
+                    setTimeout(() => { controls.lock(); }, 100);
+                    
+                    if (!urlInput) return;
+                    const parsedVideoId = parseYouTubeId(urlInput);
+                    
+                    const targetPos = new THREE.Vector3();
+                    camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
+                    const newPropId = Math.random().toString(36).substring(2, 9);
+                    
+                    set(youtubeStateRef, { videoId: parsedVideoId, startedAt: Date.now() }).then(() => {
+                        set(ref(db, `rooms/${roomId}/props/${newPropId}`), { 
+                            type: 'youtube', x: targetPos.x, y: targetPos.y, z: targetPos.z,
+                            rx: 0, ry: 0, rz: 0, rw: 1, lastInteractedBy: playerId
+                        });
+                    });
+                    return;
+                }
+
                 const targetPos = new THREE.Vector3();
                 camera.getWorldDirection(targetPos).multiplyScalar(4).add(camera.position);
                 const newPropId = Math.random().toString(36).substring(2, 9);
-                set(ref(db, `rooms/${roomId}/props/${newPropId}`), { type: currentPropType, x: targetPos.x, y: targetPos.y, z: targetPos.z });
+                set(ref(db, `rooms/${roomId}/props/${newPropId}`), { 
+                    type: currentPropType, x: targetPos.x, y: targetPos.y, z: targetPos.z,
+                    rx: 0, ry: 0, rz: 0, rw: 1, lastInteractedBy: playerId
+                });
             }
             if (e.button === 2) { 
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
@@ -818,6 +953,9 @@
                             if(foundProp.type === 'youtube') return; 
                             grabbedObj = foundProp; grabIsPlayer = false;
                             grabbedObj.body.mass = 0; grabbedObj.body.velocity.set(0,0,0); grabbedObj.body.angularVelocity.set(0,0,0);
+                            
+                            // Sets ownership flag instantly when picked up
+                            update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), { lastInteractedBy: playerId });
                         } else {
                             const foundPlayer = Object.values(networkPlayers).find(p => p.group === hitObject);
                             if(foundPlayer && foundPlayer.group.userData) {
@@ -858,64 +996,95 @@
             }
         });
 
+        const playerEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+        document.addEventListener('mousemove', (e) => {
+            if (!controls.isLocked || !gameActive) return;
+            const movementX = e.movementX || 0; const movementY = e.movementY || 0;
+            playerEuler.y -= movementX * 0.002; playerEuler.x -= movementY * 0.002;
+            playerEuler.x = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, playerEuler.x));
+        });
+
+        let syncTimer = 0;
         function animate() {
             requestAnimationFrame(animate);
             if (gameActive) {
                 world.fixedStep();
                 
                 if (isFlying) {
-                    if (spacePressed) {
-                        playerBody.velocity.y = 12.0;
-                    }
+                    if (spacePressed) playerBody.velocity.y = 12.0;
                 } else {
-                    const startVec = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
-                    const endVec = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.95, playerBody.position.z);
+                    const startVec = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.89, playerBody.position.z);
+                    const endVec = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.96, playerBody.position.z);
                     const raycastResult = new CANNON.RaycastResult();
                     world.raycastClosest(startVec, endVec, {}, raycastResult);
-                    canJump = raycastResult.hasHit && Math.abs(playerBody.velocity.y) < 1.0;
+                    canJump = raycastResult.hasHit && Math.abs(playerBody.velocity.y) < 1.5;
                     
-                    if (spacePressed && canJump) {
-                        playerBody.velocity.y = 9.5;
-                        canJump = false;
+                    if (spacePressed && canJump && spaceWasReleased) {
+                        playerBody.velocity.y = 9.5; canJump = false; spaceWasReleased = false; 
                     }
                 }
 
                 localAvatarGroup.position.set(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
-                
-                const lookDir = new THREE.Vector3();
-                camera.getWorldDirection(lookDir);
-                const localLookTarget = new THREE.Vector3(
-                    localAvatarGroup.position.x + lookDir.x * 5, localAvatarGroup.position.y + 1.6 + lookDir.y * 5, localAvatarGroup.position.z + lookDir.z * 5
-                );
+                localAvatarGroup.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), playerEuler.y);
+
+                const lookDir = new THREE.Vector3(0, 0, -1).applyEuler(playerEuler);
+                const localLookTarget = new THREE.Vector3(localAvatarGroup.position.x + lookDir.x * 5, localAvatarGroup.position.y + 1.6 + lookDir.y * 5, localAvatarGroup.position.z + lookDir.z * 5);
                 localHeadGroup.lookAt(localLookTarget);
 
                 if (viewMode === 0) {
                     camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
+                    camera.quaternion.setFromEuler(playerEuler);
+                    portalGunGroup.position.copy(camera.position).add(new THREE.Vector3(0.25, -0.22, -0.45).applyQuaternion(camera.quaternion));
+                    portalGunGroup.quaternion.copy(camera.quaternion);
+                    portalGunGroup.visible = true;
                 } else if (viewMode === 1) {
-                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.6, playerBody.position.z).addScaledVector(lookDir, 2.5);
-                    camera.lookAt(playerBody.position.x, playerBody.position.y + 0.4, playerBody.position.z);
-                } else if (viewMode === 2) {
-                    camera.position.set(playerBody.position.x, playerBody.position.y + 1.5, playerBody.position.z).addScaledVector(lookDir, -4.8);
+                    const forwardOffset = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, playerEuler.y, 0));
+                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z).addScaledVector(forwardOffset, 3.2);
                     camera.lookAt(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
+                    portalGunGroup.visible = false;
+                } else if (viewMode === 2) {
+                    const backwardOffset = new THREE.Vector3(0, 0, 1).applyEuler(playerEuler);
+                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.8, playerBody.position.z).addScaledVector(backwardOffset, 4.5);
+                    camera.quaternion.setFromEuler(playerEuler);
+                    portalGunGroup.visible = false;
                 }
                 
-                Object.keys(props).forEach(id => { 
-                    if (props[id].type !== 'youtube') {
-                        props[id].mesh.position.copy(props[id].body.position); 
-                        props[id].mesh.quaternion.copy(props[id].body.quaternion); 
-                    } else if (props[id].domLabel) {
-                        props[id].domLabel.position.set(props[id].mesh.position.x, props[id].mesh.position.y + 1.3, props[id].mesh.position.z);
+                // --- Continuous Object Stream Processing Layer ---
+                syncTimer++;
+                Object.values(props).forEach(prop => { 
+                    if (prop.type !== 'youtube') {
+                        prop.mesh.position.copy(prop.body.position); 
+                        prop.mesh.quaternion.copy(prop.body.quaternion); 
+
+                        // Every 3 frames, check if this prop is moving/flying and broadcast coordinates
+                        if (syncTimer % 3 === 0) {
+                            const speed = prop.body.velocity.length();
+                            const angSpeed = prop.body.angularVelocity.length();
+                            
+                            // If the object is active or being grabbed by you, broadcast its coordinates
+                            if ((speed > 0.05 || angSpeed > 0.05 || grabbedObj === prop)) {
+                                update(ref(db, `rooms/${roomId}/props/${prop.id}`), {
+                                    x: prop.body.position.x,
+                                    y: prop.body.position.y,
+                                    z: prop.body.position.z,
+                                    rx: prop.body.quaternion.x,
+                                    ry: prop.body.quaternion.y,
+                                    rz: prop.body.quaternion.z,
+                                    rw: prop.body.quaternion.w,
+                                    lastInteractedBy: playerId
+                                });
+                            }
+                        }
+                    } else if (prop.domLabel) {
+                        prop.domLabel.position.set(prop.mesh.position.x, prop.mesh.position.y + 1.3, prop.mesh.position.z);
                     }
                 });
 
                 if (grabbedObj) {
-                    const targetPos = new THREE.Vector3(); 
-                    camera.getWorldDirection(targetPos).multiplyScalar(grabDistance).add(camera.position);
+                    const targetPos = new THREE.Vector3(0, 0, -1).applyEuler(playerEuler).multiplyScalar(grabDistance).add(camera.position);
                     
                     if (!grabIsPlayer) {
-                        grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z); 
-                        grabbedObj.body.velocity.set(0,0,0);
-                        set(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), { type: grabbedObj.type, x: targetPos.x, y: targetPos.y, z: targetPos.z });
+                        grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z); grabbedObj.body.velocity.set(0,0,0);
                     } else {
                         if (networkPlayers[grabbedPlayerId]) {
                             grabbedObj.group.position.set(targetPos.x, targetPos.y - 0.9, targetPos.z);
@@ -927,42 +1096,27 @@
                     
                     if (grabbedObj) {
                         const positions = beamLine.geometry.attributes.position.array;
-                        positions[0] = camera.position.x; positions[1] = camera.position.y - 0.2; positions[2] = camera.position.z - 0.2; 
+                        const gunTipPos = new THREE.Vector3(0.25, -0.22, -0.6).applyQuaternion(camera.quaternion).add(camera.position);
+                        positions[0] = gunTipPos.x; positions[1] = gunTipPos.y; positions[2] = gunTipPos.z; 
                         positions[3] = targetPos.x; positions[4] = targetPos.y; positions[5] = targetPos.z;
                         beamLine.geometry.attributes.position.needsUpdate = true; beamLine.visible = true;
                     }
                 }
 
-                if (controls.isLocked && viewMode !== 1) {
-                    inputDirection.z = Number(moveForward) - Number(moveBackward); 
-                    inputDirection.x = Number(moveRight) - Number(moveLeft); 
-                    inputDirection.normalize();
-                    
-                    let camTarget = new THREE.Vector3(); 
-                    camera.getWorldDirection(camTarget); 
-                    if (!isFlying) camTarget.y = 0; 
-                    camTarget.normalize();
-                    
-                    const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize(), moveVector = new THREE.Vector3();
+                if (controls.isLocked) {
+                    inputDirection.z = Number(moveForward) - Number(moveBackward); inputDirection.x = Number(moveRight) - Number(moveLeft); inputDirection.normalize();
+                    let camTarget = new THREE.Vector3(0, 0, -1).applyEuler(playerEuler); if (!isFlying) camTarget.y = 0; camTarget.normalize();
+                    const camRight = new THREE.Vector3().crossVectors(camTarget, new THREE.Vector3(0,1,0)).normalize(), moveVector = new THREE.Vector3();
                     const movementSpeed = isFlying ? 22.0 : 16.0; 
-                    moveVector.addScaledVector(camTarget, inputDirection.z * movementSpeed); 
-                    moveVector.addScaledVector(camRight, inputDirection.x * movementSpeed);
-                    
-                    playerBody.velocity.x = moveVector.x; 
-                    playerBody.velocity.z = moveVector.z;
-                    
-                    if (isFlying && !spacePressed && !moveForward && !moveBackward && !moveLeft && !moveRight) {
-                        playerBody.velocity.y = 0;
-                    }
+                    moveVector.addScaledVector(camTarget, inputDirection.z * movementSpeed); moveVector.addScaledVector(camRight, inputDirection.x * movementSpeed);
+                    playerBody.velocity.x = moveVector.x; playerBody.velocity.z = moveVector.z;
+                    if (isFlying && !spacePressed && !moveForward && !moveBackward && !moveLeft && !moveRight) playerBody.velocity.y = 0;
 
                     update(playerRef, { 
                         name: username, color: avatarColor, isAdminStatus: isAdmin, 
                         x: playerBody.position.x, y: playerBody.position.y + 0.5, z: playerBody.position.z,
                         dirX: lookDir.x, dirY: lookDir.y, dirZ: lookDir.z
                     });
-                } else if(viewMode === 1 && controls.isLocked) {
-                    playerBody.velocity.x = 0;
-                    playerBody.velocity.z = 0;
                 }
             }
             renderer.render(scene, camera); labelRenderer.render(scene, camera); 
