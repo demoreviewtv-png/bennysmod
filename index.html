@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Benny's Mod Sandbox - Secure Build</title>
+    <title>Benny's Mod Sandbox - Diagnostics Edition</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; user-select: none; }
         
@@ -16,6 +16,30 @@
             z-index: 10; display: none;
         }
 
+        /* CRASH / DIAGNOSTIC SCREEN */
+        #crash-screen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #1a0505; display: none; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 1000; color: #ff6666;
+            padding: 20px; box-sizing: border-box; text-align: center;
+        }
+        .crash-box {
+            background: rgba(0,0,0,0.8); padding: 30px; border-radius: 12px;
+            border: 2px solid #ff3333; max-width: 500px; width: 100%;
+            box-shadow: 0 0 30px rgba(255,0,0,0.4);
+        }
+        #crash-log {
+            background: #000; color: #00ff00; font-family: 'Courier New', monospace;
+            padding: 15px; text-align: left; border-radius: 6px;
+            overflow-x: auto; white-space: pre-wrap; font-size: 13px;
+            margin: 15px 0; border: 1px solid #333; max-height: 200px;
+        }
+        .crash-box button {
+            padding: 10px 20px; background: #ff3333; color: white;
+            border: none; border-radius: 4px; font-weight: bold; cursor: pointer;
+        }
+        .crash-box button:hover { background: #ff5555; }
+
         /* START SCREEN MENU */
         #start-screen {
             position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -27,12 +51,14 @@
             background: rgba(0,0,0,0.6); padding: 30px; border-radius: 12px;
             border: 1px solid #444; width: 320px; display: flex; flex-direction: column; gap: 15px;
         }
+        .menu-box label { font-size: 14px; color: #aaa; font-weight: 500; }
         .menu-box input, .menu-box select, .menu-box button {
             padding: 12px; border-radius: 6px; border: none; font-size: 16px;
         }
         .menu-box input, .menu-box select { background: #222; color: white; border: 1px solid #555; }
-        .menu-box button { background: #21a03c; color: white; font-weight: bold; cursor: pointer; }
-        .menu-box button:hover { background: #2cbd4b; }
+        .menu-box button { background: #21a03c; color: white; font-weight: bold; cursor: pointer; transition: all 0.2s ease; }
+        .menu-box button:hover:not(:disabled) { background: #2cbd4b; }
+        .menu-box button:disabled { background: #555; color: #aaa; cursor: not-allowed; opacity: 0.7; }
 
         /* Q MENU */
         #spawn-menu {
@@ -90,6 +116,32 @@
 </head>
 <body>
 
+    <div id="crash-screen">
+        <div class="crash-box">
+            <h2>💥 Sandbox Initialization Crash</h2>
+            <p>The game engine failed to link or sync dependencies safely. Details:</p>
+            <div id="crash-log">No error logs detected yet.</div>
+            <button onclick="location.reload()">TRY RELOADING SCREEN</button>
+        </div>
+    </div>
+
+    <script>
+        function triggerCrashOverlay(msg, source, lineno, colno, error) {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('crash-screen').style.display = 'flex';
+            const log = document.getElementById('crash-log');
+            log.innerText = `Error: ${msg}\nSource: ${source || 'Unknown Module'}\nLine: ${lineno || '?'}:${colno || '?'}`;
+            if(error && error.stack) {
+                log.innerText += `\n\nStack:\n${error.stack}`;
+            }
+            return false;
+        }
+        window.onerror = triggerCrashOverlay;
+        window.onunhandledrejection = function(event) {
+            triggerCrashOverlay(event.reason.message || event.reason, 'Async Promise Rejection', 0, 0, event.reason);
+        };
+    </script>
+
     <div id="start-screen">
         <h2>Benny's Mod Sandbox</h2>
         <div class="menu-box">
@@ -106,7 +158,7 @@
             <label>Private Server Room ID</label>
             <input type="text" id="room-input" value="sandbox-1">
             
-            <button id="start-btn">LAUNCH GAME</button>
+            <button id="start-btn" disabled>CONNECTING SERVERS...</button>
         </div>
     </div>
 
@@ -215,6 +267,10 @@
         let playerRef, propsRef, envRef, adminRef, roomRef;
         let gameActive = false, isAdmin = false;
 
+        const startBtn = document.getElementById('start-btn');
+        startBtn.innerText = "LAUNCH GAME";
+        startBtn.disabled = false;
+
         const savedUsername = localStorage.getItem('bm_saved_username');
         if (savedUsername) {
             document.getElementById('username-input').value = savedUsername;
@@ -293,7 +349,10 @@
         };
 
         // --- START GAME INITIALIZATION ---
-        document.getElementById('start-btn').addEventListener('click', () => {
+        startBtn.addEventListener('click', () => {
+            startBtn.disabled = true;
+            startBtn.innerText = "LOADING LEVEL...";
+
             username = document.getElementById('username-input').value.trim() || "Player";
             avatarColor = parseInt(document.getElementById('avatar-input').value);
             roomId = document.getElementById('room-input').value.trim() || "global";
@@ -309,7 +368,6 @@
 
             onDisconnect(playerRef).remove();
             
-            // Lobby self-cleaning action hook
             onDisconnect(ref(db, `rooms/${roomId}/players`)).then(() => {
                 onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
                     if (snap.exists() && Object.keys(snap.val()).length <= 1) {
@@ -327,13 +385,15 @@
 
             setupMultiplayerListeners();
 
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('crosshair').style.display = 'block';
-            document.getElementById('instructions').style.display = 'block';
-            document.getElementById('player-list-panel').style.display = 'block';
-            
-            controls.lock();
-            gameActive = true;
+            setTimeout(() => {
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('crosshair').style.display = 'block';
+                document.getElementById('instructions').style.display = 'block';
+                document.getElementById('player-list-panel').style.display = 'block';
+                
+                controls.lock();
+                gameActive = true;
+            }, 400);
         });
 
         function setupMultiplayerListeners() {
