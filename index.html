@@ -52,13 +52,13 @@
 
         #spawn-menu {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 550px; background: rgba(20, 20, 20, 0.95); border: 2px solid #555; border-radius: 8px;
+            width: 580px; height: 85vh; overflow-y: auto; background: rgba(20, 20, 20, 0.95); border: 2px solid #555; border-radius: 8px;
             padding: 20px; color: white; z-index: 20; display: none; box-shadow: 0 0 20px rgba(0,0,0,0.7);
         }
         #spawn-menu h3 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center;}
         .menu-section { margin-bottom: 15px; }
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .spawn-btn { padding: 10px; background: #2a67bc; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase; }
+        .spawn-btn { padding: 10px; background: #2a67bc; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px; text-transform: uppercase; }
         .spawn-btn.active { background: #21a03c; }
         .spawn-btn.food { background: #d47a22; }
         .spawn-btn.utility { background: #8e44ad; }
@@ -66,6 +66,9 @@
         .spawn-btn.vehicle { background: #c0392b; }
         .spawn-btn.portal { background: #00d2ff; color: #111; }
         .admin-btn { padding: 10px; background: #b83232; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
+        .flex-row { display: flex; gap: 10px; }
+        .flex-row > div { flex: 1; }
+        .flex-row select { width: 100%; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-top: 4px; }
         
         #player-list-panel {
             position: absolute; top: 20px; right: 20px; width: 260px;
@@ -75,17 +78,13 @@
         #player-list-panel h4 { margin: 0 0 8px 0; border-bottom: 1px solid #555; padding-bottom: 3px; }
         .player-list-item { font-size: 13px; margin: 6px 0; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 4px; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: #21a03c; }
+        .ban-action { font-size: 10px; background: #b83232; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; display: none; }
 
         .username-tag { color: white; background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 14px; pointer-events: none; white-space: nowrap; border: 1px solid rgba(255,255,255,0.2); }
+        .admin-tag { color: #ff3333; font-size: 11px; font-weight: bold; display: block; text-align: center; margin-top: 1px;}
         #instructions { position: absolute; bottom: 20px; left: 20px; color: white; background: rgba(0,0,0,0.7); padding: 12px; border-radius: 5px; pointer-events: none; font-size: 13px; display: none; }
         
-        .video-player-frame {
-            width: 640px;
-            height: 360px;
-            background: #000;
-            margin: 0; padding: 0;
-            box-sizing: border-box; border: none;
-        }
+        .video-player-frame { width: 640px; height: 360px; background: #000; margin: 0; padding: 0; box-sizing: border-box; border: none; }
         .video-player-frame iframe { width: 100%; height: 100%; border: none; display: block; }
     </style>
 </head>
@@ -94,7 +93,7 @@
     <div id="start-screen">
         <div class="menu-box">
             <h2>Benny's Mod Sandbox</h2>
-            <div class="update-pill">STABLE ENGINE ONLINE</div>
+            <div class="update-pill">HYBRID STABLE ENGINE ONLINE</div>
             
             <label>Username</label>
             <input type="text" id="username-input">
@@ -106,11 +105,6 @@
                 <option value="0x3333ff">🔵 Cobalt Vanguard</option>
                 <option value="0xd4af37">🟡 Prestige Gold Knight</option>
                 <option value="0x8e44ad">🟣 Amethyst Void Walker</option>
-                <option value="0xe67e22">🟠 Amber Heavy Mech</option>
-                <option value="0x1abc9c">🌐 Turquoise Deep Scout</option>
-                <option value="0x2c3e50">🌑 Midnight Commando</option>
-                <option value="0xff69b4">🌸 Hot Pink Spec-Ops</option>
-                <option value="0xffffff">⚪ Pure Ivory Phantom</option>
             </select>
 
             <div style="display: flex; gap: 10px;">
@@ -152,13 +146,16 @@
             <div class="grid">
                 <button class="spawn-btn active" onclick="selectProp('cube', this)">Cube</button>
                 <button class="spawn-btn" onclick="selectProp('sphere', this)">Sphere</button>
-                <button class="spawn-btn utility" onclick="selectProp('ramp', this)">📐 Stunt Ramp</button>
+                <button class="spawn-btn" onclick="selectProp('cylinder', this)">Cylinder</button>
                 <button class="spawn-btn" onclick="selectProp('torus', this)">Donut</button>
+            </div>
+            <div class="grid" style="margin-top: 8px;">
+                <button class="spawn-btn utility" style="grid-column: span 4;" onclick="selectProp('ramp', this)">📐 Structural Stunt Ramp</button>
             </div>
         </div>
 
         <div class="menu-section">
-            <h4>Sci-Fi Weaponry & Logic Elements</h4>
+            <h4>Sci-Fi Weaponry & Logic</h4>
             <div class="grid">
                 <button class="spawn-btn portal" style="grid-column: span 4;" onclick="selectProp('portalgun', this)">🌀 Aperture Portal Projector</button>
             </div>
@@ -172,15 +169,44 @@
         </div>
 
         <div class="menu-section">
+            <h4>Food Items Update 🍔</h4>
+            <div class="grid">
+                <button class="spawn-btn food" onclick="selectProp('taco', this)">🌮 Taco</button>
+                <button class="spawn-btn food" onclick="selectProp('pizza', this)">🍕 Pizza</button>
+                <button class="spawn-btn food" onclick="selectProp('burger', this)">🍔 Burger</button>
+                <button class="spawn-btn food" onclick="selectProp('fries', this)">🍟 Fries</button>
+            </div>
+        </div>
+
+        <div class="menu-section">
             <h4>Interactive Tools, Gear & Appliances</h4>
             <div class="grid">
                 <button class="spawn-btn utility" onclick="selectProp('frisbee', this)">🥏 Frisbee</button>
                 <button class="spawn-btn utility" onclick="selectProp('pickaxe', this)">⛏️ Pickaxe</button>
-                <button class="spawn-btn food" onclick="selectProp('taco', this)">🌮 Taco</button>
                 <button class="spawn-btn appliance" onclick="selectProp('microwave', this)">📟 Microwave</button>
+                <button class="spawn-btn" style="background: #cc2222; color: white;" onclick="selectProp('youtube', this)">📺 YT Monitor</button>
             </div>
-            <div class="grid" style="margin-top:8px;">
-                <button class="spawn-btn" style="grid-column: span 4; background: #cc2222; color: white;" onclick="selectProp('youtube', this)">📺 YouTube Monitor Frame</button>
+        </div>
+
+        <div class="menu-section">
+            <h4>Environment Override Settings</h4>
+            <div class="flex-row">
+                <div>
+                    <label>Skybox Color</label>
+                    <select id="skybox-select">
+                        <option value="0x1a1a24">Space Night</option>
+                        <option value="0x87ceeb">Daylight Blue</option>
+                        <option value="0x3b2d54">Cyberpunk Purple</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Ground Material</label>
+                    <select id="ground-select">
+                        <option value="0x22222b">Dark Metal Grid</option>
+                        <option value="0x3b5323">Grass Green</option>
+                        <option value="0xaaaaaa">Concrete Gray</option>
+                    </select>
+                </div>
             </div>
         </div>
 
@@ -195,7 +221,7 @@
         • Click screen anywhere to lock mouse view (WASD to move, Space to Jump)<br>
         • Hold <strong>Q</strong> to view spawn dashboard<br>
         • Left-Click to drop selected object / Fire active portal gun energy cores<br>
-        • Right-Click & Hold to Drag / Swing-Throw physics objects
+        • Right-Click & Hold to <strong>Grab, Move & Swing-Throw</strong> Physics Objects / Players
     </div>
 
     <script type="importmap">
@@ -203,16 +229,14 @@
             "imports": {
                 "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
                 "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-                "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js",
-                "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
-                "firebase/database": "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"
+                "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
             }
         }
     </script>
 
     <script type="module">
-        import { initializeApp } from "firebase/app";
-        import { getDatabase, ref, set, update, onValue, onChildAdded, onChildRemoved, remove, onDisconnect } from "firebase/database";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getDatabase, ref, set, update, onValue, onChildAdded, onChildRemoved, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
@@ -233,22 +257,16 @@
         const db = getDatabase(app);
 
         let roomId, playerId, username, avatarColor;
-        let playerRef, propsRef, adminRef, roomRef;
+        let playerRef, propsRef, envRef, adminRef, roomRef;
         let gameActive = false, isAdmin = false;
 
         let lastSpawnTime = 0;
-        const SPAWN_COOLDOWN_MS = 300;
+        const SPAWN_COOLDOWN_MS = 250;
 
-        const startBtn = document.getElementById('start-btn');
-        
         if (localStorage.getItem('bennysmod_username')) {
             document.getElementById('username-input').value = localStorage.getItem('bennysmod_username');
         } else {
             document.getElementById('username-input').value = "Player_" + Math.floor(100 + Math.random() * 900);
-        }
-
-        if (localStorage.getItem('bennysmod_avatar')) {
-            document.getElementById('avatar-input').value = localStorage.getItem('bennysmod_avatar');
         }
 
         if (localStorage.getItem('bennysmod_playerid')) {
@@ -261,48 +279,34 @@
         onValue(ref(db, 'rooms'), (snapshot) => {
             const roomsListContainer = document.getElementById('public-rooms-list');
             const data = snapshot.val();
-            
             if (!data) {
                 roomsListContainer.innerHTML = '<div class="no-rooms">No active rooms found. Create one!</div>';
                 return;
             }
-            
             roomsListContainer.innerHTML = '';
             Object.keys(data).forEach(rId => {
                 const roomData = data[rId];
                 if (roomData.visibility === 'private') return; 
-                
                 const playersCount = roomData.players ? Object.keys(roomData.players).length : 0;
-                
                 const item = document.createElement('div');
                 item.className = 'room-item';
                 item.innerHTML = `<span>🚪 ${rId}</span> <span class="room-pop">${playersCount} online</span>`;
-                item.addEventListener('click', () => {
-                    document.getElementById('room-input').value = rId;
-                });
+                item.addEventListener('click', () => { document.getElementById('room-input').value = rId; });
                 roomsListContainer.appendChild(item);
             });
-
-            if(roomsListContainer.innerHTML === '') {
-                roomsListContainer.innerHTML = '<div class="no-rooms">All rooms are private.</div>';
-            }
         });
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x1a1a24);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
         const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
         sunLight.position.set(20, 40, 20);
-        sunLight.castShadow = true;
         scene.add(sunLight);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
         const css3dRenderer = new CSS3DRenderer();
@@ -323,42 +327,38 @@
         const groundMaterial = new CANNON.Material('groundMaterial');
         const playerMaterial = new CANNON.Material('playerMaterial');
         
-        const contactMaterial = new CANNON.ContactMaterial(playerMaterial, groundMaterial, {
-            friction: 0.0, 
-            restitution: 0.0
-        });
-        world.addContactMaterial(contactMaterial);
+        world.addContactMaterial(new CANNON.ContactMaterial(playerMaterial, groundMaterial, { friction: 0.0, restitution: 0.0 }));
 
-        const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x2c3e50 }));
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x22222b });
+        const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMat);
         groundMesh.rotation.x = -Math.PI / 2;
-        groundMesh.receiveShadow = true;
         scene.add(groundMesh);
         const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: groundMaterial });
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
         world.addBody(groundBody);
 
-        const playerBody = new CANNON.Body({ mass: 70, shape: new CANNON.Cylinder(0.6, 0.6, 2, 8), fixedRotation: true, material: playerMaterial });
+        const playerBody = new CANNON.Body({ mass: 70, shape: new CANNON.Cylinder(0.6, 0.6, 1.8, 8), fixedRotation: true, material: playerMaterial });
         playerBody.position.set(0, 3, 5);
-        playerBody.linearDamping = 0.1; 
         world.addBody(playerBody);
+
+        const beamLineMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 3 });
+        const beamGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+        const beamLine = new THREE.Line(beamGeometry, beamLineMaterial);
+        beamLine.visible = false;
+        scene.add(beamLine);
 
         const controls = new PointerLockControls(camera, renderer.domElement);
         const menu = document.getElementById('spawn-menu');
 
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
         const props = {}, networkPlayers = {};
         let currentPropType = 'cube';
         
-        let grabbedObj = null, grabDistance = 6;
-        let lastGrabbedPos = new CANNON.Vec3();
-        let grabbedVelocity = new CANNON.Vec3();
+        let grabbedObj = null, grabDistance = 6, grabIsPlayer = false;
+        let lastGrabbedPos = new CANNON.Vec3(), grabbedVelocity = new CANNON.Vec3();
         const raycaster = new THREE.Raycaster();
 
-        window.addEventListener('click', () => {
-            if (gameActive && menu.style.display !== 'block') {
-                controls.lock();
-            }
-        });
+        window.addEventListener('click', () => { if (gameActive && menu.style.display !== 'block') controls.lock(); });
 
         window.selectProp = function(type, element) {
             currentPropType = type;
@@ -366,47 +366,27 @@
             element.classList.add('active');
         };
 
-        function createFaceTexture(colorHex) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 128; canvas.height = 128;
-            const ctx = canvas.getContext('2d');
-            
-            ctx.fillStyle = colorHex;
-            ctx.fillRect(0, 0, 128, 128);
-            
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(28, 35, 22, 22);
-            ctx.fillRect(78, 35, 22, 22);
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(34, 41, 10, 10);
-            ctx.fillRect(84, 41, 10, 10);
-            
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 6;
-            ctx.beginPath();
-            ctx.arc(64, 75, 22, 0, Math.PI, false);
-            ctx.stroke();
-            
-            return new THREE.CanvasTexture(canvas);
-        }
-
-        startBtn.addEventListener('click', () => {
+        document.getElementById('start-btn').addEventListener('click', () => {
             username = document.getElementById('username-input').value.trim() || "Player";
             avatarColor = document.getElementById('avatar-input').value;
             roomId = document.getElementById('room-input').value.trim().toLowerCase() || "global";
             const roomVisibility = document.getElementById('visibility-input').value;
 
             localStorage.setItem('bennysmod_username', username);
-            localStorage.setItem('bennysmod_avatar', avatarColor);
 
             roomRef = ref(db, `rooms/${roomId}`);
             playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
             propsRef = ref(db, `rooms/${roomId}/props`);
+            envRef = ref(db, `rooms/${roomId}/environment`);
             adminRef = ref(db, `rooms/${roomId}/admin`);
 
             update(roomRef, { visibility: roomVisibility });
-
             onDisconnect(playerRef).remove();
+
+            onValue(ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`), (snapshot) => {
+                if (snapshot.val()) { alert("You have been banned from this private sandbox room."); location.reload(); }
+            });
+
             setupMultiplayerListeners();
 
             document.getElementById('start-screen').style.display = 'none';
@@ -426,177 +406,156 @@
                 } else if (currentAdmin.id === playerId) {
                     isAdmin = true;
                     document.getElementById('admin-panel').style.display = 'block';
+                    document.querySelectorAll('.ban-action').forEach(b => b.style.display = 'inline-block');
                 }
             });
 
             onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
                 const data = snapshot.val() || {};
                 const listPanel = document.getElementById('player-list-content');
-                listPanel.innerHTML = `<div class="player-list-item"><div><span class="status-dot"></span> ${username} (You)</div></div>`;
+                listPanel.innerHTML = `<div class="player-list-item"><div><span class="status-dot"></span> ${username} (You) ${isAdmin ? '[Admin]' : ''}</div></div>`;
 
                 Object.keys(networkPlayers).forEach(id => {
-                    if (!data[id]) { 
-                        scene.remove(networkPlayers[id].mesh); 
-                        delete networkPlayers[id]; 
-                    }
+                    if (!data[id]) { scene.remove(networkPlayers[id].mesh); delete networkPlayers[id]; }
                 });
 
                 Object.keys(data).forEach(id => {
                     if (id === playerId) return;
-                    listPanel.innerHTML += `<div class="player-list-item"><div><span class="status-dot"></span> ${data[id].name}</div></div>`;
+                    
+                    const userStr = data[id].name || 'Guest';
+                    const targetAdmin = data[id].isAdminStatus ? ' (Admin)' : '';
+                    
+                    const pRow = document.createElement('div');
+                    pRow.className = 'player-list-item';
+                    pRow.innerHTML = `<div><span class="status-dot" style="background:#e0a800"></span>${userStr}${targetAdmin}</div><button class="ban-action" style="display: ${isAdmin ? 'inline-block' : 'none'}">BAN</button>`;
+                    
+                    const banBtn = pRow.querySelector('.ban-action');
+                    if (banBtn) {
+                        banBtn.addEventListener('click', () => {
+                            if (confirm(`Ban user ${userStr}?`)) {
+                                set(ref(db, `rooms/${roomId}/bans/${userStr.toLowerCase()}`), true);
+                                remove(ref(db, `rooms/${roomId}/players/${id}`));
+                            }
+                        });
+                    }
+                    listPanel.appendChild(pRow);
                     
                     if (!networkPlayers[id]) {
                         const group = new THREE.Group();
-                        
-                        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }));
-                        torso.position.y = 0.6;
-                        
-                        const headGeom = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-                        const faceTex = createFaceTexture(data[id].color || "#ff3333");
-                        const headMaterials = [
-                            new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }), 
-                            new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }), 
-                            new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }), 
-                            new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }), 
-                            new THREE.MeshStandardMaterial({ map: faceTex }),                               
-                            new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) })  
-                        ];
-                        const headMesh = new THREE.Mesh(headGeom, headMaterials);
-                        headMesh.position.y = 1.4;
-                        
-                        group.add(torso, headMesh);
+                        const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: parseInt(data[id].color || 0xff3333) }));
+                        bodyMesh.position.y = 0.6;
+                        const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+                        headMesh.position.y = 1.35;
+                        group.add(bodyMesh, headMesh);
 
                         const nameDiv = document.createElement('div');
                         nameDiv.className = 'username-tag';
-                        nameDiv.innerText = data[id].name;
+                        nameDiv.innerHTML = `${userStr} <span class="admin-tag">${data[id].isAdminStatus ? 'ADMIN' : ''}</span>`;
                         const label = new CSS2DObject(nameDiv);
                         label.position.set(0, 1.9, 0);
                         group.add(label);
 
                         networkPlayers[id] = { mesh: group, targetPos: new THREE.Vector3() };
+                        networkPlayers[id].mesh.userData.networkId = id;
                         scene.add(group);
                     }
-                    networkPlayers[id].targetPos.set(data[id].x, data[id].y, data[id].z);
+                    networkPlayers[id].targetPos.set(data[id].x, data[id].y - 0.9, data[id].z);
                 });
             });
 
-            onChildAdded(propsRef, (snapshot) => {
-                createLocalProp(snapshot.key, snapshot.val());
+            onValue(envRef, (snapshot) => {
+                const env = snapshot.val();
+                if (env) {
+                    if (env.skybox) scene.background.setHex(parseInt(env.skybox));
+                    if (env.ground) groundMat.color.setHex(parseInt(env.ground));
+                }
             });
 
+            onChildAdded(propsRef, (snapshot) => { createLocalProp(snapshot.key, snapshot.val()); });
             onChildRemoved(propsRef, (snapshot) => {
                 const id = snapshot.key;
-                if (props[id]) { 
-                    scene.remove(props[id].mesh); 
-                    world.removeBody(props[id].body); 
-                    delete props[id]; 
-                }
+                if (props[id]) { scene.remove(props[id].mesh); world.removeBody(props[id].body); delete props[id]; }
             });
         }
 
+        document.getElementById('skybox-select').addEventListener('change', (e) => { if (gameActive) set(ref(db, `rooms/${roomId}/environment/skybox`), e.target.value); });
+        document.getElementById('ground-select').addEventListener('change', (e) => { if (gameActive) set(ref(db, `rooms/${roomId}/environment/ground`), e.target.value); });
         document.getElementById('clear-room-btn').addEventListener('click', () => { if (isAdmin) remove(propsRef); });
 
         function createLocalProp(id, val) {
             if (props[id]) return;
-            let mesh = new THREE.Group(), shape;
-            let mass = 5;
+            let mesh = new THREE.Group(), shape, mass = 8, size = 1.2;
             let startRotation = new CANNON.Quaternion();
             
-            if (val.type === 'frisbee') {
+            if (val.type === 'cube') {
+                mesh.add(new THREE.Mesh(new THREE.BoxGeometry(size, size, size), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.2 })));
+                shape = new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2));
+            } else if (val.type === 'sphere') {
+                mesh.add(new THREE.Mesh(new THREE.SphereGeometry(size/2, 16, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff })));
+                shape = new CANNON.Sphere(size/2);
+            } else if (val.type === 'cylinder') {
+                mesh.add(new THREE.Mesh(new THREE.CylinderGeometry(size/2, size/2, size, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff })));
+                shape = new CANNON.Cylinder(size/2, size/2, size, 16);
+            } else if (val.type === 'torus') {
+                mesh.add(new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.2, 8, 24), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff })));
+                shape = new CANNON.Sphere(0.6);
+            } else if (val.type === 'burger') {
+                const bunMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.6 });
+                const topBun = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16, 0, Math.PI*2, 0, Math.PI/2), bunMat);
+                topBun.position.y = 0.15; topBun.scale.y = 0.6;
+                const patty = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.12, 12), new THREE.MeshStandardMaterial({ color: 0x5c4033 }));
+                mesh.add(topBun, patty);
+                shape = new CANNON.Cylinder(0.45, 0.45, 0.5, 8);
+            } else if (val.type === 'pizza') {
+                mesh.add(new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.62, 0.06, 16, 1, false, 0, Math.PI / 3), new THREE.MeshStandardMaterial({ color: 0xcd853f })));
+                shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.05, 0.4));
+            } else if (val.type === 'taco') {
+                const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.2, 12, 1, false, 0, Math.PI), new THREE.MeshStandardMaterial({ color: 0xeedaa2, side: THREE.DoubleSide }));
+                shell.rotation.x = Math.PI / 2; mesh.add(shell);
+                shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.2, 0.2));
+            } else if (val.type === 'fries') {
+                mesh.add(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.2, 0.5, 12), new THREE.MeshStandardMaterial({ color: 0xd11a2a })));
+                shape = new CANNON.Cylinder(0.35, 0.25, 0.7, 8);
+            } else if (val.type === 'frisbee') {
                 mesh.add(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16), new THREE.MeshStandardMaterial({ color: 0xff3366 })));
                 shape = new CANNON.Cylinder(0.5, 0.5, 0.1, 16);
             } else if (val.type === 'pickaxe') {
                 const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.0, 8), new THREE.MeshStandardMaterial({ color: 0x8b5a2b }));
-                handle.rotation.z = Math.PI / 2;
-                mesh.add(handle);
+                handle.rotation.z = Math.PI / 2; mesh.add(handle);
                 shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.2, 0.1));
-            } else if (val.type === 'taco') {
-                const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.2, 12, 1, false, 0, Math.PI), new THREE.MeshStandardMaterial({ color: 0xeedaa2, side: THREE.DoubleSide }));
-                shell.rotation.x = Math.PI / 2;
-                mesh.add(shell);
-                shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.2, 0.2));
             } else if (val.type === 'microwave') {
-                const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-                const screenMesh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.02), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-                screenMesh.position.set(0.4, 0, 0.41);
-                const glassMesh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.02), new THREE.MeshStandardMaterial({ color: 0x22ffaa, transparent: true, opacity: 0.4 }));
-                glassMesh.position.set(-0.1, 0, 0.41);
-                mesh.add(bodyMesh, screenMesh, glassMesh);
+                mesh.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0x333333 })));
                 shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.4, 0.4));
             } else if (val.type === 'ramp') {
                 mass = 0; 
-                const rampWidth = 4.0, rampHeight = 1.5, rampLength = 5.0;
-                const rampMesh = new THREE.Mesh(new THREE.BoxGeometry(rampWidth, rampHeight, rampLength), new THREE.MeshStandardMaterial({ color: 0x34495e, roughness: 0.7 }));
-                mesh.add(rampMesh);
-                shape = new CANNON.Box(new CANNON.Vec3(rampWidth / 2, rampHeight / 2, rampLength / 2));
+                mesh.add(new THREE.Mesh(new THREE.BoxGeometry(4.0, 1.5, 5.0), new THREE.MeshStandardMaterial({ color: 0x34495e })));
+                shape = new CANNON.Box(new CANNON.Vec3(2.0, 0.75, 2.5));
                 startRotation.setFromEuler(-0.35, 0, 0); 
             } else if (val.type === 'portalgun') {
                 mass = 2;
-                const chassis = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.8, 12), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }));
-                chassis.rotation.z = Math.PI / 2;
-                const emitter = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 12), new THREE.MeshStandardMaterial({ color: 0x00d2ff, emissive: 0x00a2ff }));
-                emitter.position.set(0.4, 0, 0);
-                mesh.add(chassis, emitter);
+                const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.8, 12), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+                ch.rotation.z = Math.PI / 2; mesh.add(ch);
                 shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.2, 0.2));
             } else if (val.type === 'portal_core') {
                 mass = 1;
-                const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: val.variant === 'orange' ? 0xff6a00 : 0x0094ff, emissive: val.variant === 'orange' ? 0xff3a00 : 0x0054ff }));
-                mesh.add(coreMesh);
+                mesh.add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: val.variant === 'orange' ? 0xff6a00 : 0x0094ff, emissive: val.variant === 'orange' ? 0xff3a00 : 0x0054ff })));
                 shape = new CANNON.Sphere(0.35);
             } else if (val.type === 'car') {
                 mass = 45;
-                const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 4), new THREE.MeshStandardMaterial({ color: 0xd35400 }));
-                const cabinMesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 2), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-                cabinMesh.position.set(0, 0.55, -0.2);
-                mesh.add(bodyMesh, cabinMesh);
-
-                const wheelGeom = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 12);
-                const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-                const wheelOffsets = [
-                    {x: 1.05, y: -0.2, z: 1.3}, {x: -1.05, y: -0.2, z: 1.3},
-                    {x: 1.05, y: -0.2, z: -1.3}, {x: -1.05, y: -0.2, z: -1.3}
-                ];
-                wheelOffsets.forEach(offset => {
-                    const w = new THREE.Mesh(wheelGeom, wheelMat);
-                    w.rotation.z = Math.PI / 2;
-                    w.position.set(offset.x, offset.y, offset.z);
-                    mesh.add(w);
-                });
-
+                mesh.add(new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 4), new THREE.MeshStandardMaterial({ color: 0xd35400 })));
                 shape = new CANNON.Box(new CANNON.Vec3(1.1, 0.5, 2));
             } else if (val.type === 'youtube') {
-                const width = 3.2; const height = 1.8;
-                const backingMesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), new THREE.MeshStandardMaterial({ color: 0x000000, side: THREE.DoubleSide }));
-                mesh.add(backingMesh);
-
-                const frameElement = document.createElement('div');
-                frameElement.className = 'video-player-frame';
-                frameElement.innerHTML = `<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" allowfullscreen></iframe>`;
-                
-                const object3d = new CSS3DObject(frameElement);
-                object3d.scale.set(0.005, 0.005, 0.005); object3d.position.z = 0.01; 
-                mesh.add(object3d);
-                shape = new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, 0.05));
-            } else {
-                mesh.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x2a67bc })));
-                shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
+                mesh.add(new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.8), new THREE.MeshStandardMaterial({ color: 0x000000, side: THREE.DoubleSide })));
+                const fr = document.createElement('div'); fr.className = 'video-player-frame';
+                fr.innerHTML = `<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" allowfullscreen></iframe>`;
+                const obj3d = new CSS3DObject(fr); obj3d.scale.set(0.005, 0.005, 0.005); obj3d.position.z = 0.01; mesh.add(obj3d);
+                shape = new CANNON.Box(new CANNON.Vec3(1.6, 0.9, 0.05));
             }
             
-            mesh.position.set(val.x, val.y, val.z);
-            scene.add(mesh);
-            
+            mesh.position.set(val.x, val.y, val.z); scene.add(mesh);
             const body = new CANNON.Body({ mass: mass, shape: shape });
-            body.position.set(val.x, val.y, val.z);
-            body.quaternion.copy(startRotation);
-            
-            if(val.type === 'car') {
-                body.linearDamping = 0.15;
-                body.angularDamping = 0.3;
-            }
-            if(val.type === 'portal_core') {
-                body.linearDamping = 0.01;
-                if(val.vx) body.velocity.set(val.vx, val.vy, val.vz);
-            }
+            body.position.set(val.x, val.y, val.z); body.quaternion.copy(startRotation);
+            if(val.type === 'portal_core' && val.vx) body.velocity.set(val.vx, val.vy, val.vz);
             
             world.addBody(body);
             props[id] = { id, mesh, body, type: val.type };
@@ -607,52 +566,36 @@
         window.addEventListener('mousedown', (e) => {
             if (!controls.isLocked || !gameActive) return;
             if (e.button === 0) { 
-                const now = Date.now();
-                if (now - lastSpawnTime < SPAWN_COOLDOWN_MS) return; 
-                lastSpawnTime = now;
-
+                const now = Date.now(); if (now - lastSpawnTime < SPAWN_COOLDOWN_MS) return; lastSpawnTime = now;
                 if (currentPropType === 'portalgun') {
-                    const forwardVector = new THREE.Vector3();
-                    camera.getWorldDirection(forwardVector);
-                    
-                    const spawnOrigin = new THREE.Vector3().copy(camera.position).addScaledVector(forwardVector, 1.5);
-                    const speed = 40; 
-                    
-                    const newId = Math.random().toString(36).substring(2, 9);
+                    const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
+                    const spawnO = new THREE.Vector3().copy(camera.position).addScaledVector(fwd, 1.5);
                     portalToggleAlt = !portalToggleAlt;
-                    
-                    set(ref(db, `rooms/${roomId}/props/${newId}`), { 
-                        type: 'portal_core', 
-                        variant: portalToggleAlt ? 'blue' : 'orange',
-                        x: spawnOrigin.x, 
-                        y: spawnOrigin.y, 
-                        z: spawnOrigin.z,
-                        vx: forwardVector.x * speed,
-                        vy: forwardVector.y * speed,
-                        vz: forwardVector.z * speed
+                    set(ref(db, `rooms/${roomId}/props/${Math.random().toString(36).substring(2, 9)}`), { 
+                        type: 'portal_core', variant: portalToggleAlt ? 'blue' : 'orange', x: spawnO.x, y: spawnO.y, z: spawnO.z, vx: fwd.x * 40, vy: fwd.y * 40, vz: fwd.z * 40
                     });
                 } else {
-                    const targetPos = new THREE.Vector3();
-                    camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
-                    const newId = Math.random().toString(36).substring(2, 9);
-                    set(ref(db, `rooms/${roomId}/props/${newId}`), { type: currentPropType, x: targetPos.x, y: targetPos.y + 1, z: targetPos.z });
+                    const targetPos = new THREE.Vector3(); camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
+                    set(ref(db, `rooms/${roomId}/props/${Math.random().toString(36).substring(2, 9)}`), { type: currentPropType, x: targetPos.x, y: targetPos.y + 0.5, z: targetPos.z });
                 }
             }
             if (e.button === 2) { 
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
-                const targets = Object.values(props).map(p => p.mesh);
+                const targets = [...Object.values(props).map(p => p.mesh), ...Object.values(networkPlayers).map(p => p.mesh)];
                 const intersects = raycaster.intersectObjects(targets, true);
                 if (intersects.length > 0) {
                     let hit = intersects[0].object;
+                    grabDistance = intersects[0].distance;
                     while (hit.parent && hit.parent.type !== "Scene") { hit = hit.parent; }
-                    grabbedObj = Object.values(props).find(p => p.mesh === hit);
                     
-                    if (grabbedObj && grabbedObj.body.mass > 0) {
-                        grabbedObj.body.mass = 0;
-                        grabbedObj.body.updateMassProperties();
-                        lastGrabbedPos.copy(grabbedObj.body.position);
-                    } else {
-                        grabbedObj = null;
+                    let propMatch = Object.values(props).find(p => p.mesh === hit);
+                    let playerMatch = Object.values(networkPlayers).find(p => p.mesh === hit);
+
+                    if (propMatch && propMatch.body.mass > 0) {
+                        grabbedObj = propMatch; grabbedObj.body.mass = 0; grabbedObj.body.updateMassProperties();
+                        grabIsPlayer = false; lastGrabbedPos.copy(grabbedObj.body.position);
+                    } else if (playerMatch) {
+                        grabbedObj = playerMatch; grabIsPlayer = true;
                     }
                 }
             }
@@ -660,11 +603,11 @@
 
         window.addEventListener('mouseup', (e) => {
             if (e.button === 2 && grabbedObj) {
-                grabbedObj.body.mass = (grabbedObj.type === 'car') ? 45 : (grabbedObj.type === 'portalgun') ? 2 : 5;
-                grabbedObj.body.updateMassProperties();
-                
-                grabbedObj.body.velocity.copy(grabbedVelocity).scale(1.7); 
-                grabbedObj = null;
+                if (!grabIsPlayer) {
+                    grabbedObj.body.mass = (grabbedObj.type === 'car') ? 45 : (grabbedObj.type === 'portalgun') ? 2 : 8;
+                    grabbedObj.body.updateMassProperties(); grabbedObj.body.velocity.copy(grabbedVelocity).scale(1.7);
+                }
+                grabbedObj = null; beamLine.visible = false;
             }
         });
 
@@ -673,7 +616,7 @@
             if (e.code === 'KeyS') moveBackward = true;
             if (e.code === 'KeyA') moveLeft = true;
             if (e.code === 'KeyD') moveRight = true;
-            if (e.code === 'Space' && Math.abs(playerBody.velocity.y) < 0.1) playerBody.velocity.y = 8;
+            if (e.code === 'Space' && canJump) { playerBody.velocity.y = 8.5; canJump = false; }
             if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
         });
 
@@ -693,39 +636,41 @@
             const delta = Math.min(clock.getDelta(), 0.1);
             world.fixedStep();
 
-            camera.position.set(playerBody.position.x, playerBody.position.y + 0.6, playerBody.position.z);
+            camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
 
-            Object.keys(networkPlayers).forEach(id => {
-                networkPlayers[id].mesh.position.lerp(networkPlayers[id].targetPos, delta * 15);
-            });
+            const rayResult = new CANNON.RaycastResult();
+            world.raycastClosest(playerBody.position, new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 1.05, playerBody.position.z), {}, rayResult);
+            canJump = rayResult.hasHit;
 
-            Object.values(props).forEach(prop => {
-                prop.mesh.position.copy(prop.body.position);
-                prop.mesh.quaternion.copy(prop.body.quaternion);
-            });
+            Object.keys(networkPlayers).forEach(id => { networkPlayers[id].mesh.position.lerp(networkPlayers[id].targetPos, delta * 15); });
+            Object.values(props).forEach(prop => { prop.mesh.position.copy(prop.body.position); prop.mesh.quaternion.copy(prop.body.quaternion); });
 
             if (grabbedObj) {
                 const target = new THREE.Vector3(0, 0, -grabDistance).applyQuaternion(camera.quaternion).add(camera.position);
-                grabbedObj.body.position.set(target.x, target.y, target.z);
-                
-                if (delta > 0) {
-                    grabbedVelocity.x = (grabbedObj.body.position.x - lastGrabbedPos.x) / delta;
-                    grabbedVelocity.y = (grabbedObj.body.position.y - lastGrabbedPos.y) / delta;
-                    grabbedVelocity.z = (grabbedObj.body.position.z - lastGrabbedPos.z) / delta;
+                if (!grabIsPlayer) {
+                    grabbedObj.body.position.set(target.x, target.y, target.z);
+                    if (delta > 0) {
+                        grabbedVelocity.set((grabbedObj.body.position.x - lastGrabbedPos.x)/delta, (grabbedObj.body.position.y - lastGrabbedPos.y)/delta, (grabbedObj.body.position.z - lastGrabbedPos.z)/delta);
+                    }
+                    grabbedObj.body.velocity.set(0, 0, 0); lastGrabbedPos.copy(grabbedObj.body.position);
+                    set(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), { type: grabbedObj.type, x: target.x, y: target.y, z: target.z });
+                } else {
+                    const netId = grabbedObj.mesh.userData.networkId;
+                    set(ref(db, `rooms/${roomId}/players/${netId}/x`), target.x);
+                    set(ref(db, `rooms/${roomId}/players/${netId}/y`), target.y + 0.9);
+                    set(ref(db, `rooms/${roomId}/players/${netId}/z`), target.z);
                 }
-                
-                grabbedObj.body.velocity.set(0, 0, 0);
-                lastGrabbedPos.copy(grabbedObj.body.position);
+                const pos = beamLine.geometry.attributes.position.array;
+                pos[0] = camera.position.x; pos[1] = camera.position.y - 0.2; pos[2] = camera.position.z;
+                pos[3] = target.x; pos[4] = target.y; pos[5] = target.z;
+                beamLine.geometry.attributes.position.needsUpdate = true; beamLine.visible = true;
             }
 
             if (controls.isLocked) {
                 const moveVec = new THREE.Vector3(Number(moveRight) - Number(moveLeft), 0, Number(moveBackward) - Number(moveForward)).normalize();
                 moveVec.applyQuaternion(camera.quaternion);
-                
-                playerBody.velocity.x = moveVec.x * 12;
-                playerBody.velocity.z = moveVec.z * 12;
-
-                update(playerRef, { name: username, color: avatarColor, x: playerBody.position.x, y: playerBody.position.y, z: playerBody.position.z });
+                playerBody.velocity.x = moveVec.x * 12; playerBody.velocity.z = moveVec.z * 12;
+                update(playerRef, { name: username, color: avatarColor, isAdminStatus: isAdmin, x: playerBody.position.x, y: playerBody.position.y, z: playerBody.position.z });
             }
 
             renderer.render(scene, camera);
@@ -735,11 +680,9 @@
         animate();
 
         window.addEventListener('resize', () => { 
-            camera.aspect = window.innerWidth / window.innerHeight; 
-            camera.updateProjectionMatrix(); 
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); 
             renderer.setSize(window.innerWidth, window.innerHeight); 
-            css3dRenderer.setSize(window.innerWidth, window.innerHeight);
-            css2dRenderer.setSize(window.innerWidth, window.innerHeight);
+            css3dRenderer.setSize(window.innerWidth, window.innerHeight); css2dRenderer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
 </body>
