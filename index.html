@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Benny's Mod Sandbox - Diagnostics Edition</title>
+    <title>Benny's Mod Sandbox - Copyable Diagnostics</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; user-select: none; }
         
@@ -33,12 +33,18 @@
             padding: 15px; text-align: left; border-radius: 6px;
             overflow-x: auto; white-space: pre-wrap; font-size: 13px;
             margin: 15px 0; border: 1px solid #333; max-height: 200px;
+            user-select: text; /* Ensures manual highlighters can select text too */
+        }
+        .crash-btn-container {
+            display: flex; gap: 10px; justify-content: center; margin-top: 15px;
         }
         .crash-box button {
-            padding: 10px 20px; background: #ff3333; color: white;
-            border: none; border-radius: 4px; font-weight: bold; cursor: pointer;
+            padding: 10px 20px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s;
         }
-        .crash-box button:hover { background: #ff5555; }
+        .btn-reload { background: #ff3333; color: white; }
+        .btn-reload:hover { background: #ff5555; }
+        .btn-copy { background: #444; color: white; }
+        .btn-copy:hover { background: #666; }
 
         /* START SCREEN MENU */
         #start-screen {
@@ -121,7 +127,10 @@
             <h2>💥 Sandbox Initialization Crash</h2>
             <p>The game engine failed to link or sync dependencies safely. Details:</p>
             <div id="crash-log">No error logs detected yet.</div>
-            <button onclick="location.reload()">TRY RELOADING SCREEN</button>
+            <div class="crash-btn-container">
+                <button class="btn-copy" id="copy-log-btn">COPY ERROR LOG</button>
+                <button class="btn-reload" onclick="location.reload()">RELOAD SCREEN</button>
+            </div>
         </div>
     </div>
 
@@ -129,17 +138,36 @@
         function triggerCrashOverlay(msg, source, lineno, colno, error) {
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('crash-screen').style.display = 'flex';
+            
             const log = document.getElementById('crash-log');
-            log.innerText = `Error: ${msg}\nSource: ${source || 'Unknown Module'}\nLine: ${lineno || '?'}:${colno || '?'}`;
+            let formattedText = `Error: ${msg}\nSource: ${source || 'Unknown Module'}\nLine: ${lineno || '?'}:${colno || '?'}`;
             if(error && error.stack) {
-                log.innerText += `\n\nStack:\n${error.stack}`;
+                formattedText += `\n\nStack:\n${error.stack}`;
             }
+            log.innerText = formattedText;
             return false;
         }
+        
         window.onerror = triggerCrashOverlay;
         window.onunhandledrejection = function(event) {
             triggerCrashOverlay(event.reason.message || event.reason, 'Async Promise Rejection', 0, 0, event.reason);
         };
+
+        // Clip-board handler routine
+        document.getElementById('copy-log-btn').addEventListener('click', function() {
+            const textToCopy = document.getElementById('crash-log').innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const oldText = this.innerText;
+                this.innerText = "COPIED SUCCESSFULLY!";
+                this.style.background = "#21a03c";
+                setTimeout(() => {
+                    this.innerText = oldText;
+                    this.style.background = "#444";
+                }, 1500);
+            }).catch(err => {
+                alert("Failed to copy automatically. Please select the text inside the green box manually.");
+            });
+        });
     </script>
 
     <div id="start-screen">
