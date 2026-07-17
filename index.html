@@ -94,7 +94,7 @@
     <div id="start-screen">
         <div class="menu-box">
             <h2>Benny's Mod Sandbox</h2>
-            <div class="update-pill">LIGHTING & PORTAL REBUILD LIVE</div>
+            <div class="update-pill">STABLE ENGINE ONLINE</div>
             
             <label>Username</label>
             <input type="text" id="username-input">
@@ -237,7 +237,7 @@
         let gameActive = false, isAdmin = false;
 
         let lastSpawnTime = 0;
-        const SPAWN_COOLDOWN_MS = 300; // Lowered cooldown slightly for continuous portal test firing
+        const SPAWN_COOLDOWN_MS = 300;
 
         const startBtn = document.getElementById('start-btn');
         
@@ -292,7 +292,6 @@
         scene.background = new THREE.Color(0x1a1a24);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         
-        // RESTORED SHADER LIGHTING RIG
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         scene.add(ambientLight);
 
@@ -532,7 +531,6 @@
                 shape = new CANNON.Box(new CANNON.Vec3(rampWidth / 2, rampHeight / 2, rampLength / 2));
                 startRotation.setFromEuler(-0.35, 0, 0); 
             } else if (val.type === 'portalgun') {
-                // FIXED PORTAL ITEM BLUEPRINT: Sci-Fi glowing containment chamber configuration
                 mass = 2;
                 const chassis = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.8, 12), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }));
                 chassis.rotation.z = Math.PI / 2;
@@ -541,7 +539,6 @@
                 mesh.add(chassis, emitter);
                 shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.2, 0.2));
             } else if (val.type === 'portal_core') {
-                // PROCEDURAL PROJECTED AMMUNITION ENTITY
                 mass = 1;
                 const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: val.variant === 'orange' ? 0xff6a00 : 0x0094ff, emissive: val.variant === 'orange' ? 0xff3a00 : 0x0054ff }));
                 mesh.add(coreMesh);
@@ -597,7 +594,6 @@
                 body.angularDamping = 0.3;
             }
             if(val.type === 'portal_core') {
-                // Portal projectiles defy high environmental drag vectors to stay straight
                 body.linearDamping = 0.01;
                 if(val.vx) body.velocity.set(val.vx, val.vy, val.vz);
             }
@@ -606,7 +602,7 @@
             props[id] = { id, mesh, body, type: val.type };
         }
 
-        let portalToggleAlt = false; // Alternates tracking engine updates between blue and orange energy frames
+        let portalToggleAlt = false;
 
         window.addEventListener('mousedown', (e) => {
             if (!controls.isLocked || !gameActive) return;
@@ -616,12 +612,11 @@
                 lastSpawnTime = now;
 
                 if (currentPropType === 'portalgun') {
-                    // IMPLEMENTED INTERACTIVE PROJECTILE FIRING HOOKS
                     const forwardVector = new THREE.Vector3();
                     camera.getWorldDirection(forwardVector);
                     
                     const spawnOrigin = new THREE.Vector3().copy(camera.position).addScaledVector(forwardVector, 1.5);
-                    const speed = 40; // High-velocity core velocity tracking vector
+                    const speed = 40; 
                     
                     const newId = Math.random().toString(36).substring(2, 9);
                     portalToggleAlt = !portalToggleAlt;
