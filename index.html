@@ -365,7 +365,14 @@
             currentPropType = type;
             document.querySelectorAll('.spawn-btn').forEach(btn => btn.classList.remove('active'));
             element.classList.add('active');
+            if(document.activeElement) document.activeElement.blur(); 
         };
+
+        renderer.domElement.addEventListener('click', () => {
+            if (gameActive && menu.style.display !== 'block') {
+                controls.lock();
+            }
+        });
 
         // --- START CORE GAME INITIALIZATION ---
         startBtn.addEventListener('click', () => {
@@ -387,7 +394,6 @@
             adminRef = ref(db, `rooms/${roomId}/admin`);
             roomPublicRegistrationRef = ref(db, `public_rooms/${roomId}`);
 
-            // Safety check isolated completely to this room namespace
             onValue(ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`), (snapshot) => {
                 if (snapshot.val()) {
                     alert(`Access denied. You are banned from Room: "${roomId}"`);
@@ -395,7 +401,6 @@
                 }
             });
 
-            // Fire write operations and hook handlers
             onDisconnect(playerRef).remove();
             if(isPublicRoom) onDisconnect(roomPublicRegistrationRef).remove();
 
@@ -422,7 +427,6 @@
                 }
             });
 
-            // Secure validation block ensuring real-time boots work dynamically
             onValue(playerRef, (snapshot) => {
                 if (gameActive && !snapshot.exists()) {
                     setTimeout(() => {
@@ -526,7 +530,10 @@
             if (e.code === 'KeyS') moveBackward = true;
             if (e.code === 'KeyA') moveLeft = true;
             if (e.code === 'KeyD') moveRight = true;
-            if (e.code === 'Space' && canJump) { playerBody.velocity.y = 8.5; canJump = false; }
+            if (e.code === 'Space' && canJump) { 
+                playerBody.velocity.y = 9.0; // Clean vertical jumping push execution
+                canJump = false; 
+            }
             if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
         });
 
@@ -535,12 +542,47 @@
             if (e.code === 'KeyS') moveBackward = false;
             if (e.code === 'KeyA') moveLeft = false;
             if (e.code === 'KeyD') moveRight = false;
-            if (e.code === 'KeyQ') { menu.style.display = 'none'; controls.lock(); }
+            if (e.code === 'KeyQ') { 
+                menu.style.display = 'none'; 
+                if(document.activeElement) document.activeElement.blur(); 
+                setTimeout(() => { controls.lock(); }, 50); 
+            }
         });
 
         function createLocalProp(id, type, x, y, z) {
             let mesh, shape, size = 1.2;
-            if (type === 'cube') { 
+            
+            if (type === 'taco') {
+                // Procedural compound taco model group assembly
+                mesh = new THREE.Group();
+                
+                // Outer shell geometry
+                const shellGeo = new THREE.TorusGeometry(0.5, 0.12, 12, 24, Math.PI);
+                const shellMat = new THREE.MeshStandardMaterial({ color: 0xf3ca40, roughness: 0.6 }); // Golden yellow shell
+                const shell = new THREE.Mesh(shellGeo, shellMat);
+                shell.rotation.x = Math.PI; 
+                mesh.add(shell);
+                
+                // Dark brown beef inside cylinder
+                const beefGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.8, 8);
+                const beefMat = new THREE.MeshStandardMaterial({ color: 0x5c3d2e, roughness: 0.9 });
+                const beef = new THREE.Mesh(beefGeo, beefMat);
+                beef.rotation.z = Math.PI / 2;
+                beef.position.y = -0.1;
+                mesh.add(beef);
+
+                // Add small scattered topping particles (lettuce & tomatoes)
+                const lettuceMat = new THREE.MeshStandardMaterial({ color: 0x55aa33 });
+                const tomatoMat = new THREE.MeshStandardMaterial({ color: 0xdd3322 });
+                for(let i=0; i<6; i++) {
+                    const topGeo = new THREE.SphereGeometry(0.06, 4, 4);
+                    const topping = new THREE.Mesh(topGeo, (i % 2 === 0)? lettuceMat : tomatoMat);
+                    topping.position.set((Math.random()-0.5)*0.6, -0.05, (Math.random()-0.5)*0.15);
+                    mesh.add(topping);
+                }
+
+                shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.4, 0.25));
+            } else if (type === 'cube') { 
                 mesh = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.2 }));
                 shape = new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)); 
             } else if (type === 'sphere') { 
@@ -556,6 +598,7 @@
                 mesh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), new THREE.MeshStandardMaterial({ color: 0xd47a22 }));
                 shape = new CANNON.Box(new CANNON.Vec3(0.3, 0.3, 0.3));
             }
+            
             scene.add(mesh);
             const body = new CANNON.Body({ mass: 8, shape: shape });
             body.position.set(x, y, z);
@@ -606,8 +649,14 @@
                 world.fixedStep();
                 camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
                 
-                const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.91, playerBody.position.z), to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 1.05, playerBody.position.z), rayResult = new CANNON.RaycastResult();
-                world.raycastClosest(from, to, {}, rayResult); canJump = rayResult.hasHit;
+                // Robust grounding checking directly looking down below base cylinder boundary
+                const startVec = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
+                const endVec = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 1.01, playerBody.position.z);
+                const raycastResult = new CANNON.RaycastResult();
+                world.raycastClosest(startVec, endVec, {}, raycastResult);
+                
+                // Fallback check: also allow jumping if player is safely touching the floor plane directly or vertical speed is near zero
+                canJump = raycastResult.hasHit || Math.abs(playerBody.velocity.y) < 0.05;
 
                 Object.keys(props).forEach(id => { props[id].mesh.position.copy(props[id].body.position); props[id].mesh.quaternion.copy(props[id].body.quaternion); });
 
@@ -626,7 +675,10 @@
                 }
 
                 if (controls.isLocked) {
-                    inputDirection.z = Number(moveForward) - Number(moveBackward); inputDirection.x = Number(moveLeft) - Number(moveRight); inputDirection.normalize();
+                    inputDirection.z = Number(moveForward) - Number(moveBackward); 
+                    inputDirection.x = Number(moveRight) - Number(moveLeft); 
+                    inputDirection.normalize();
+                    
                     const camTarget = new THREE.Vector3(); camera.getWorldDirection(camTarget); camTarget.y = 0; camTarget.normalize();
                     const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize(), moveVector = new THREE.Vector3();
                     moveVector.addScaledVector(camTarget, inputDirection.z * 7.5); moveVector.addScaledVector(camRight, inputDirection.x * 7.5);
