@@ -48,7 +48,7 @@
         .menu-box input, .menu-box select, .menu-box button { padding: 10px; border-radius: 6px; border: none; font-size: 15px; }
         .menu-box input, .menu-box select { background: #222; color: white; border: 1px solid #555; }
         .menu-box button { background: #21a03c; color: white; font-weight: bold; cursor: pointer; }
-        .update-pill { background: #9b59b6; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: bold; align-self: flex-start; margin-top: -5px; }
+        .update-pill { background: #00bcff; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: bold; align-self: flex-start; margin-top: -5px; }
 
         #spawn-menu {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -64,6 +64,7 @@
         .spawn-btn.utility { background: #8e44ad; }
         .spawn-btn.appliance { background: #e67e22; }
         .spawn-btn.vehicle { background: #c0392b; }
+        .spawn-btn.portal { background: #00d2ff; color: #111; }
         .admin-btn { padding: 10px; background: #b83232; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
         
         #player-list-panel {
@@ -93,7 +94,7 @@
     <div id="start-screen">
         <div class="menu-box">
             <h2>Benny's Mod Sandbox</h2>
-            <div class="update-pill">VEHICLES & RAMPS CORE RUNNING</div>
+            <div class="update-pill">LIGHTING & PORTAL REBUILD LIVE</div>
             
             <label>Username</label>
             <input type="text" id="username-input">
@@ -157,6 +158,13 @@
         </div>
 
         <div class="menu-section">
+            <h4>Sci-Fi Weaponry & Logic Elements</h4>
+            <div class="grid">
+                <button class="spawn-btn portal" style="grid-column: span 4;" onclick="selectProp('portalgun', this)">🌀 Aperture Portal Projector</button>
+            </div>
+        </div>
+
+        <div class="menu-section">
             <h4>Vehicles & Heavy Rig Props</h4>
             <div class="grid">
                 <button class="spawn-btn vehicle" style="grid-column: span 4;" onclick="selectProp('car', this)">🚗 Muscle Sedan Chassis</button>
@@ -186,7 +194,7 @@
         <strong>Controls:</strong><br>
         • Click screen anywhere to lock mouse view (WASD to move, Space to Jump)<br>
         • Hold <strong>Q</strong> to view spawn dashboard<br>
-        • Left-Click to drop selected object (1s Cooldown applied)<br>
+        • Left-Click to drop selected object / Fire active portal gun energy cores<br>
         • Right-Click & Hold to Drag / Swing-Throw physics objects
     </div>
 
@@ -229,7 +237,7 @@
         let gameActive = false, isAdmin = false;
 
         let lastSpawnTime = 0;
-        const SPAWN_COOLDOWN_MS = 1000; 
+        const SPAWN_COOLDOWN_MS = 300; // Lowered cooldown slightly for continuous portal test firing
 
         const startBtn = document.getElementById('start-btn');
         
@@ -284,8 +292,18 @@
         scene.background = new THREE.Color(0x1a1a24);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         
+        // RESTORED SHADER LIGHTING RIG
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        sunLight.position.set(20, 40, 20);
+        sunLight.castShadow = true;
+        scene.add(sunLight);
+
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
         const css3dRenderer = new CSS3DRenderer();
@@ -312,8 +330,9 @@
         });
         world.addContactMaterial(contactMaterial);
 
-        const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x22222b }));
+        const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x2c3e50 }));
         groundMesh.rotation.x = -Math.PI / 2;
+        groundMesh.receiveShadow = true;
         scene.add(groundMesh);
         const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: groundMaterial });
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
@@ -506,27 +525,34 @@
                 mesh.add(bodyMesh, screenMesh, glassMesh);
                 shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.4, 0.4));
             } else if (val.type === 'ramp') {
-                // FIXED STATIC RAMP: Solid structural blueprint configuration
                 mass = 0; 
                 const rampWidth = 4.0, rampHeight = 1.5, rampLength = 5.0;
-                
-                const rampGeom = new THREE.BoxGeometry(rampWidth, rampHeight, rampLength);
-                const rampMat = new THREE.MeshStandardMaterial({ color: 0x34495e, roughness: 0.7 });
-                const rampMesh = new THREE.Mesh(rampGeom, rampMat);
+                const rampMesh = new THREE.Mesh(new THREE.BoxGeometry(rampWidth, rampHeight, rampLength), new THREE.MeshStandardMaterial({ color: 0x34495e, roughness: 0.7 }));
                 mesh.add(rampMesh);
-                
                 shape = new CANNON.Box(new CANNON.Vec3(rampWidth / 2, rampHeight / 2, rampLength / 2));
-                // Set the ramp at an angle
                 startRotation.setFromEuler(-0.35, 0, 0); 
+            } else if (val.type === 'portalgun') {
+                // FIXED PORTAL ITEM BLUEPRINT: Sci-Fi glowing containment chamber configuration
+                mass = 2;
+                const chassis = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.8, 12), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 }));
+                chassis.rotation.z = Math.PI / 2;
+                const emitter = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 12), new THREE.MeshStandardMaterial({ color: 0x00d2ff, emissive: 0x00a2ff }));
+                emitter.position.set(0.4, 0, 0);
+                mesh.add(chassis, emitter);
+                shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.2, 0.2));
+            } else if (val.type === 'portal_core') {
+                // PROCEDURAL PROJECTED AMMUNITION ENTITY
+                mass = 1;
+                const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: val.variant === 'orange' ? 0xff6a00 : 0x0094ff, emissive: val.variant === 'orange' ? 0xff3a00 : 0x0054ff }));
+                mesh.add(coreMesh);
+                shape = new CANNON.Sphere(0.35);
             } else if (val.type === 'car') {
-                // INTERACTIVE VEHICLE SYSTEM: Dynamic mechanical chassis assembly
                 mass = 45;
                 const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 4), new THREE.MeshStandardMaterial({ color: 0xd35400 }));
                 const cabinMesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 2), new THREE.MeshStandardMaterial({ color: 0x222222 }));
                 cabinMesh.position.set(0, 0.55, -0.2);
                 mesh.add(bodyMesh, cabinMesh);
 
-                // Attach procedural styling nodes for visual wheels mapping
                 const wheelGeom = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 12);
                 const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
                 const wheelOffsets = [
@@ -566,15 +592,21 @@
             body.position.set(val.x, val.y, val.z);
             body.quaternion.copy(startRotation);
             
-            // Apply higher damping variables on vehicles to remove structural slide lag
             if(val.type === 'car') {
                 body.linearDamping = 0.15;
                 body.angularDamping = 0.3;
+            }
+            if(val.type === 'portal_core') {
+                // Portal projectiles defy high environmental drag vectors to stay straight
+                body.linearDamping = 0.01;
+                if(val.vx) body.velocity.set(val.vx, val.vy, val.vz);
             }
             
             world.addBody(body);
             props[id] = { id, mesh, body, type: val.type };
         }
+
+        let portalToggleAlt = false; // Alternates tracking engine updates between blue and orange energy frames
 
         window.addEventListener('mousedown', (e) => {
             if (!controls.isLocked || !gameActive) return;
@@ -583,10 +615,33 @@
                 if (now - lastSpawnTime < SPAWN_COOLDOWN_MS) return; 
                 lastSpawnTime = now;
 
-                const targetPos = new THREE.Vector3();
-                camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
-                const newId = Math.random().toString(36).substring(2, 9);
-                set(ref(db, `rooms/${roomId}/props/${newId}`), { type: currentPropType, x: targetPos.x, y: targetPos.y + 1, z: targetPos.z });
+                if (currentPropType === 'portalgun') {
+                    // IMPLEMENTED INTERACTIVE PROJECTILE FIRING HOOKS
+                    const forwardVector = new THREE.Vector3();
+                    camera.getWorldDirection(forwardVector);
+                    
+                    const spawnOrigin = new THREE.Vector3().copy(camera.position).addScaledVector(forwardVector, 1.5);
+                    const speed = 40; // High-velocity core velocity tracking vector
+                    
+                    const newId = Math.random().toString(36).substring(2, 9);
+                    portalToggleAlt = !portalToggleAlt;
+                    
+                    set(ref(db, `rooms/${roomId}/props/${newId}`), { 
+                        type: 'portal_core', 
+                        variant: portalToggleAlt ? 'blue' : 'orange',
+                        x: spawnOrigin.x, 
+                        y: spawnOrigin.y, 
+                        z: spawnOrigin.z,
+                        vx: forwardVector.x * speed,
+                        vy: forwardVector.y * speed,
+                        vz: forwardVector.z * speed
+                    });
+                } else {
+                    const targetPos = new THREE.Vector3();
+                    camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
+                    const newId = Math.random().toString(36).substring(2, 9);
+                    set(ref(db, `rooms/${roomId}/props/${newId}`), { type: currentPropType, x: targetPos.x, y: targetPos.y + 1, z: targetPos.z });
+                }
             }
             if (e.button === 2) { 
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
@@ -597,7 +652,6 @@
                     while (hit.parent && hit.parent.type !== "Scene") { hit = hit.parent; }
                     grabbedObj = Object.values(props).find(p => p.mesh === hit);
                     
-                    // Do not drag immovable static assets like the ramp blueprints
                     if (grabbedObj && grabbedObj.body.mass > 0) {
                         grabbedObj.body.mass = 0;
                         grabbedObj.body.updateMassProperties();
@@ -611,8 +665,7 @@
 
         window.addEventListener('mouseup', (e) => {
             if (e.button === 2 && grabbedObj) {
-                // Restore weight configuration metrics based on type signature
-                grabbedObj.body.mass = (grabbedObj.type === 'car') ? 45 : 5;
+                grabbedObj.body.mass = (grabbedObj.type === 'car') ? 45 : (grabbedObj.type === 'portalgun') ? 2 : 5;
                 grabbedObj.body.updateMassProperties();
                 
                 grabbedObj.body.velocity.copy(grabbedVelocity).scale(1.7); 
