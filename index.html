@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benny's Mod Sandbox - Secure Build</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; user-select: none; }
+        
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 8px; height: 8px;
+            background: white; border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none; mix-blend-mode: difference;
+            z-index: 10; display: none;
+        }
+
+        /* START SCREEN MENU */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle, #24243e, #0f0c1b);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100; color: white;
+        }
+        .menu-box {
+            background: rgba(0,0,0,0.6); padding: 30px; border-radius: 12px;
+            border: 1px solid #444; width: 320px; display: flex; flex-direction: column; gap: 15px;
+        }
+        .menu-box input, .menu-box select, .menu-box button {
+            padding: 12px; border-radius: 6px; border: none; font-size: 16px;
+        }
+        .menu-box input, .menu-box select { background: #222; color: white; border: 1px solid #555; }
+        .menu-box button { background: #21a03c; color: white; font-weight: bold; cursor: pointer; }
+        .menu-box button:hover { background: #2cbd4b; }
+
+        /* Q MENU */
+        #spawn-menu {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 550px; background: rgba(20, 20, 20, 0.95);
+            border: 2px solid #555; border-radius: 8px;
+            padding: 20px; color: white; z-index: 20;
+            display: none; box-shadow: 0 0 20px rgba(0,0,0,0.7);
+        }
+        #spawn-menu h3 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center;}
+        .menu-section { margin-bottom: 15px; }
+        
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .spawn-btn { padding: 10px; background: #2a67bc; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase; }
+        .spawn-btn.active { background: #21a03c; }
+        .spawn-btn.food { background: #d47a22; }
+        .spawn-btn.food:hover { background: #e68a33; }
+        .spawn-btn.food.active { background: #21a03c; }
+        
+        .admin-btn { padding: 10px; background: #b83232; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
+        .admin-btn:hover { background: #d94141; }
+        .flex-row { display: flex; gap: 10px; }
+        .flex-row select { flex: 1; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;}
+
+        #admin-panel { display: none; border-top: 1px solid #444; margin-top: 15px; padding-top: 10px; }
+
+        /* SCOREBOARD / PLAYER LIST */
+        #player-list-panel {
+            position: absolute; top: 20px; right: 20px;
+            width: 220px; background: rgba(0,0,0,0.7);
+            border: 1px solid #444; border-radius: 6px;
+            padding: 10px; color: white; z-index: 15; display: none;
+        }
+        #player-list-panel h4 { margin: 0 0 8px 0; border-bottom: 1px solid #555; padding-bottom: 3px; }
+        .player-list-item { font-size: 13px; margin: 6px 0; display: flex; align-items: center; justify-content: space-between; }
+        .player-info { display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .ban-action { font-size: 10px; background: #b83232; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; display: none; }
+
+        .username-tag {
+            color: white; background: rgba(0,0,0,0.6);
+            padding: 2px 8px; border-radius: 4px; font-weight: bold;
+            font-size: 14px; pointer-events: none; white-space: nowrap;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .admin-tag { color: #ff3333; font-size: 11px; font-weight: bold; display: block; text-align: center; margin-top: 1px;}
+
+        #instructions {
+            position: absolute; bottom: 20px; left: 20px;
+            color: white; background: rgba(0,0,0,0.7);
+            padding: 12px; border-radius: 5px; pointer-events: none; font-size: 13px; display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h2>Benny's Mod Sandbox</h2>
+        <div class="menu-box">
+            <label>Username</label>
+            <input type="text" id="username-input">
+            
+            <label>Avatar Model Variant</label>
+            <select id="avatar-input">
+                <option value="0xff3333">Red Android</option>
+                <option value="0x33ff33">Green Cyber-Suit</option>
+                <option value="0x3333ff">Blue Guardian</option>
+            </select>
+
+            <label>Private Server Room ID</label>
+            <input type="text" id="room-input" value="sandbox-1">
+            
+            <button id="start-btn">LAUNCH GAME</button>
+        </div>
+    </div>
+
+    <div id="crosshair"></div>
+
+    <div id="player-list-panel">
+        <h4>Players Online</h4>
+        <div id="player-list-content"></div>
+    </div>
+
+    <div id="spawn-menu">
+        <h3>Sandbox Control Panel</h3>
+        
+        <div class="menu-section">
+            <h4>Basic Geometric Props</h4>
+            <div class="grid">
+                <button class="spawn-btn active" onclick="selectProp('cube', this)">Cube</button>
+                <button class="spawn-btn" onclick="selectProp('sphere', this)">Sphere</button>
+                <button class="spawn-btn" onclick="selectProp('cylinder', this)">Cylinder</button>
+                <button class="spawn-btn" onclick="selectProp('torus', this)">Donut</button>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <h4>Food Items Update 🍔</h4>
+            <div class="grid">
+                <button class="spawn-btn food" onclick="selectProp('taco', this)">🌮 Taco</button>
+                <button class="spawn-btn food" onclick="selectProp('pizza', this)">🍕 Pizza</button>
+                <button class="spawn-btn food" onclick="selectProp('burger', this)">🍔 Burger</button>
+                <button class="spawn-btn food" onclick="selectProp('fries', this)">🍟 Fries</button>
+            </div>
+        </div>
+
+        <div class="menu-section">
+            <h4>Environment Settings</h4>
+            <div class="flex-row">
+                <div>
+                    <label>Skybox Color</label><br>
+                    <select id="skybox-select">
+                        <option value="0x1a1a24">Space Night</option>
+                        <option value="0x87ceeb">Daylight Blue</option>
+                        <option value="0x3b2d54">Cyberpunk Purple</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Ground Type</label><br>
+                    <select id="ground-select">
+                        <option value="0x22222b">Dark Metal Grid</option>
+                        <option value="0x3b5323">Grass Green</option>
+                        <option value="0xaaaaaa">Concrete Gray</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="admin-panel" class="menu-section">
+            <h4>Admin Utility Options</h4>
+            <button class="admin-btn" id="clear-room-btn">CLEAR ALL PROPS</button>
+        </div>
+    </div>
+
+    <div id="instructions">
+        <strong>Controls:</strong><br>
+        • Click screen to look (WASD to move, Space to Jump)<br>
+        • Hold <strong>Q</strong> to open Spawn Menu & Options<br>
+        • Left-Click to spawn selected prop<br>
+        • Right-Click & Hold to <strong>Grab Objects / Other Players</strong>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "cannon-es": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js",
+                "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
+                "firebase/database": "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "firebase/app";
+        import { getDatabase, ref, set, onValue, onChildAdded, onChildRemoved, remove, onDisconnect } from "firebase/database";
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+        import * as CANNON from 'cannon-es';
+
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBmHx2iZL0UFgr_d0y0-ENIQQ6EF82XuIs",
+            authDomain: "bennysmod.firebaseapp.com",
+            databaseURL: "https://bennysmod-default-rtdb.firebaseio.com",
+            projectId: "bennysmod",
+            storageBucket: "bennysmod.firebasestorage.app",
+            messagingSenderId: "739121709314",
+            appId: "1:739121709314:web:69323c2e9ebaab911c821b",
+            measurementId: "G-TB8EBLGN6X"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let roomId, playerId, username, avatarColor;
+        let playerRef, propsRef, envRef, adminRef, roomRef;
+        let gameActive = false, isAdmin = false;
+
+        const savedUsername = localStorage.getItem('bm_saved_username');
+        if (savedUsername) {
+            document.getElementById('username-input').value = savedUsername;
+        } else {
+            document.getElementById('username-input').value = "Player_" + Math.floor(100 + Math.random() * 900);
+        }
+
+        // --- THREE.JS SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a24);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -22, 0) });
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 30, 10);
+        scene.add(dirLight);
+
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x22222b });
+        const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMat);
+        groundMesh.rotation.x = -Math.PI / 2;
+        scene.add(groundMesh);
+        const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+        world.addBody(groundBody);
+
+        const playerPhysMat = new CANNON.Material("playerMaterial");
+        const groundPhysMat = new CANNON.Material("groundMaterial");
+        const contactMat = new CANNON.ContactMaterial(playerPhysMat, groundPhysMat, { friction: 0.0, restitution: 0.0 });
+        world.addContactMaterial(contactMat);
+        groundBody.material = groundPhysMat;
+
+        const playerRadius = 0.6, playerHeight = 1.8;
+        const playerShape = new CANNON.Cylinder(playerRadius, playerRadius, playerHeight, 8);
+        const playerBody = new CANNON.Body({ mass: 70, shape: playerShape, fixedRotation: true, material: playerPhysMat });
+        playerBody.position.set(0, 3, 5);
+        world.addBody(playerBody);
+
+        const beamMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 3 });
+        const beamGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+        const beamLine = new THREE.Line(beamGeometry, beamMaterial);
+        beamLine.visible = false;
+        scene.add(beamLine);
+
+        const controls = new PointerLockControls(camera, renderer.domElement);
+        const menu = document.getElementById('spawn-menu');
+
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
+        const inputDirection = new THREE.Vector3();
+
+        const raycaster = new THREE.Raycaster();
+        let grabbedObj = null; 
+        let grabDistance = 0;
+        let grabIsPlayer = false;
+        
+        const props = {};
+        const networkPlayers = {};
+
+        let currentPropType = 'cube';
+        window.selectProp = function(type, element) {
+            currentPropType = type;
+            document.querySelectorAll('.spawn-btn').forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+        };
+
+        // --- START GAME INITIALIZATION ---
+        document.getElementById('start-btn').addEventListener('click', () => {
+            username = document.getElementById('username-input').value.trim() || "Player";
+            avatarColor = parseInt(document.getElementById('avatar-input').value);
+            roomId = document.getElementById('room-input').value.trim() || "global";
+            playerId = Math.random().toString(36).substring(2, 9);
+
+            localStorage.setItem('bm_saved_username', username);
+
+            roomRef = ref(db, `rooms/${roomId}`);
+            playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
+            propsRef = ref(db, `rooms/${roomId}/props`);
+            envRef = ref(db, `rooms/${roomId}/environment`);
+            adminRef = ref(db, `rooms/${roomId}/admin`);
+
+            onDisconnect(playerRef).remove();
+            
+            // Lobby self-cleaning action hook
+            onDisconnect(ref(db, `rooms/${roomId}/players`)).then(() => {
+                onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
+                    if (snap.exists() && Object.keys(snap.val()).length <= 1) {
+                        remove(roomRef);
+                    }
+                }, { onlyOnce: true });
+            });
+
+            onValue(ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`), (snapshot) => {
+                if (snapshot.val()) {
+                    alert("You have been banned from this private sandbox room.");
+                    location.reload();
+                }
+            });
+
+            setupMultiplayerListeners();
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('crosshair').style.display = 'block';
+            document.getElementById('instructions').style.display = 'block';
+            document.getElementById('player-list-panel').style.display = 'block';
+            
+            controls.lock();
+            gameActive = true;
+        });
+
+        function setupMultiplayerListeners() {
+            onValue(adminRef, (snapshot) => {
+                if (!snapshot.val()) {
+                    set(adminRef, { id: playerId, name: username });
+                } else if (snapshot.val().id === playerId) {
+                    isAdmin = true;
+                    document.getElementById('admin-panel').style.display = 'block';
+                    document.querySelectorAll('.ban-action').forEach(b => b.style.display = 'inline-block');
+                }
+            });
+
+            onValue(playerRef, (snapshot) => {
+                if (gameActive && !snapshot.exists()) {
+                    alert("You have been removed or banned from the server room.");
+                    location.reload();
+                }
+            });
+
+            onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
+                const data = snapshot.val() || {};
+                const listPanel = document.getElementById('player-list-content');
+                listPanel.innerHTML = ""; 
+
+                listPanel.innerHTML += `
+                    <div class="player-list-item">
+                        <div class="player-info"><span class="status-dot" style="background:#21a03c"></span>${username} ${isAdmin ? '(Admin)' : ''}</div>
+                    </div>`;
+
+                Object.keys(networkPlayers).forEach(id => {
+                    if (!data[id]) {
+                        scene.remove(networkPlayers[id]);
+                        delete networkPlayers[id];
+                    }
+                });
+
+                Object.keys(data).forEach(id => {
+                    if (id === playerId) return;
+
+                    const userStr = data[id].name || 'Guest';
+                    const isTargetAdmin = data[id].isAdminStatus ? ' (Admin)' : '';
+                    
+                    const pRow = document.createElement('div');
+                    pRow.className = 'player-list-item';
+                    pRow.innerHTML = `
+                        <div class="player-info"><span class="status-dot" style="background:#e0a800"></span>${userStr}${isTargetAdmin}</div>
+                        <button class="ban-action" style="display: ${isAdmin ? 'inline-block' : 'none'}">BAN</button>
+                    `;
+                    
+                    const banBtn = pRow.querySelector('.ban-action');
+                    if (banBtn) {
+                        banBtn.addEventListener('click', () => {
+                            if (confirm(`Ban user: ${userStr}?`)) {
+                                set(ref(db, `rooms/${roomId}/bans/${userStr.toLowerCase()}`), true);
+                                remove(ref(db, `rooms/${roomId}/players/${id}`));
+                            }
+                        });
+                    }
+                    listPanel.appendChild(pRow);
+
+                    if (!networkPlayers[id]) {
+                        const group = new THREE.Group();
+                        
+                        const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: data[id].color || 0xff0000 }));
+                        bodyMesh.position.y = 0.6; group.add(bodyMesh);
+
+                        const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+                        headMesh.position.y = 1.35; group.add(headMesh);
+
+                        const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+                        visorMesh.position.set(0, 1.35, 0.25); group.add(visorMesh);
+
+                        const nameDiv = document.createElement('div');
+                        nameDiv.className = 'username-tag';
+                        nameDiv.innerHTML = `${userStr} <span class="admin-tag">${data[id].isAdminStatus ? 'ADMIN' : ''}</span>`;
+                        
+                        const nameLabel = new CSS2DObject(nameDiv);
+                        nameLabel.position.set(0, 1.9, 0); group.add(nameLabel);
+
+                        networkPlayers[id] = group;
+                        networkPlayers[id].userData = { networkId: id };
+                        scene.add(networkPlayers[id]);
+                    }
+
+                    networkPlayers[id].position.set(data[id].x, data[id].y - 0.9, data[id].z);
+                });
+            });
+
+            onValue(envRef, (snapshot) => {
+                const env = snapshot.val();
+                if (env) {
+                    if (env.skybox) scene.background.setHex(parseInt(env.skybox));
+                    if (env.ground) groundMat.color.setHex(parseInt(env.ground));
+                }
+            });
+
+            onChildAdded(propsRef, (snapshot) => {
+                const id = snapshot.key;
+                const data = snapshot.val();
+                if (props[id]) return;
+                createLocalProp(id, data.type, data.x, data.y, data.z);
+            });
+
+            onChildRemoved(propsRef, (snapshot) => {
+                const id = snapshot.key;
+                if (props[id]) {
+                    scene.remove(props[id].mesh);
+                    world.removeBody(props[id].body);
+                    delete props[id];
+                }
+            });
+        }
+
+        document.getElementById('skybox-select').addEventListener('change', (e) => {
+            if (gameActive) set(ref(db, `rooms/${roomId}/environment/skybox`), e.target.value);
+        });
+        document.getElementById('ground-select').addEventListener('change', (e) => {
+            if (gameActive) set(ref(db, `rooms/${roomId}/environment/ground`), e.target.value);
+        });
+        document.getElementById('clear-room-btn').addEventListener('click', () => {
+            if (isAdmin) remove(propsRef);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            if (e.code === 'KeyW') moveForward = true;
+            if (e.code === 'KeyS') moveBackward = true;
+            if (e.code === 'KeyA') moveLeft = true;
+            if (e.code === 'KeyD') moveRight = true;
+            if (e.code === 'Space' && canJump) {
+                playerBody.velocity.y = 8.5; 
+                canJump = false;
+            }
+            if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyW') moveForward = false;
+            if (e.code === 'KeyS') moveBackward = false;
+            if (e.code === 'KeyA') moveLeft = false;
+            if (e.code === 'KeyD') moveRight = false;
+            if (e.code === 'KeyQ') { menu.style.display = 'none'; controls.lock(); }
+        });
+
+        function createLocalProp(id, type, x, y, z) {
+            let mesh, shape;
+            let size = 1.2;
+
+            if (type === 'cube') { 
+                mesh = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.2 }));
+                shape = new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)); 
+            }
+            else if (type === 'sphere') { 
+                mesh = new THREE.Mesh(new THREE.SphereGeometry(size/2, 16, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
+                shape = new CANNON.Sphere(size/2); 
+            }
+            else if (type === 'cylinder') { 
+                mesh = new THREE.Mesh(new THREE.CylinderGeometry(size/2, size/2, size, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
+                shape = new CANNON.Cylinder(size/2, size/2, size, 16); 
+            }
+            else if (type === 'torus') { 
+                mesh = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.2, 8, 24), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
+                shape = new CANNON.Sphere(0.6); 
+            }
+            else if (type === 'burger') {
+                mesh = new THREE.Group();
+                const bunMat = new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.6 }); 
+                const meatMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 }); 
+                const cheeseMat = new THREE.MeshStandardMaterial({ color: 0xffd700 }); 
+
+                const topBun = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16, 0, Math.PI*2, 0, Math.PI/2), bunMat);
+                topBun.position.y = 0.15; topBun.scale.y = 0.6;
+                const cheese = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.02, 0.85), cheeseMat);
+                cheese.position.y = 0.06;
+                const patty = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.12, 12), meatMat);
+                patty.position.y = 0.0;
+                const bottomBun = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 12), bunMat);
+                bottomBun.position.y = -0.1;
+
+                mesh.add(topBun, cheese, patty, bottomBun);
+                shape = new CANNON.Cylinder(0.45, 0.45, 0.5, 8);
+            }
+            else if (type === 'pizza') {
+                mesh = new THREE.Group();
+                const crustMat = new THREE.MeshStandardMaterial({ color: 0xcd853f });
+                const cheeseMat = new THREE.MeshStandardMaterial({ color: 0xffe4b5 });
+                const pepperoniMat = new THREE.MeshStandardMaterial({ color: 0xb22222 });
+
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.62, 0.06, 16, 1, false, 0, Math.PI / 3), crustMat);
+                base.position.set(0, 0, 0);
+                const sauce = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.02, 16, 1, false, 0, Math.PI / 3), cheeseMat);
+                sauce.position.set(0, 0.04, 0);
+                
+                mesh.add(base, sauce);
+                for(let i=0; i<3; i++) {
+                    const pep = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.01, 8), pepperoniMat);
+                    pep.position.set(0.15 + (i*0.08), 0.051, 0.1 + (i*0.08));
+                    mesh.add(pep);
+                }
+                shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.05, 0.4));
+            }
+            else if (type === 'taco') {
+                mesh = new THREE.Group();
+                const shellMat = new THREE.MeshStandardMaterial({ color: 0xffd700, side: THREE.DoubleSide });
+                const meatMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+                const lettuceMat = new THREE.MeshStandardMaterial({ color: 0x32cd32 });
+
+                const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16, 1, true, 0, Math.PI), shellMat);
+                shell.rotation.z = Math.PI / 2;
+                shell.position.set(0, 0, 0);
+                
+                const filling = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.4, 0.5), meatMat);
+                filling.position.set(0, 0.1, 0);
+                
+                const lettuce = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.42, 0.4), lettuceMat);
+                lettuce.position.set(0.02, 0.15, 0);
+
+                mesh.add(shell, filling, lettuce);
+                shape = new CANNON.Box(new CANNON.Vec3(0.2, 0.3, 0.4));
+            }
+            else if (type === 'fries') {
+                mesh = new THREE.Group();
+                const cupMat = new THREE.MeshStandardMaterial({ color: 0xd11a2a }); 
+                const fryMat = new THREE.MeshStandardMaterial({ color: 0xffd700 }); 
+
+                const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.2, 0.5, 12), cupMat);
+                cup.position.y = 0;
+                mesh.add(cup);
+
+                for (let i = 0; i < 8; i++) {
+                    const fry = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.4, 0.05), fryMat);
+                    fry.position.set((Math.random() - 0.5) * 0.2, 0.25, (Math.random() - 0.5) * 0.2);
+                    fry.rotation.set((Math.random() - 0.5) * 0.3, 0, (Math.random() - 0.5) * 0.3);
+                    mesh.add(fry);
+                }
+                shape = new CANNON.Cylinder(0.35, 0.25, 0.7, 8);
+            }
+
+            scene.add(mesh);
+
+            const body = new CANNON.Body({ mass: 8, shape: shape });
+            body.position.set(x, y, z);
+            world.addBody(body);
+
+            props[id] = { id, mesh, body, type };
+        }
+
+        window.addEventListener('mousedown', (e) => {
+            if (!controls.isLocked || !gameActive) return;
+
+            if (e.button === 0) { 
+                const targetPos = new THREE.Vector3();
+                camera.getWorldDirection(targetPos).multiplyScalar(4).add(camera.position);
+
+                const newPropId = Math.random().toString(36).substring(2, 9);
+                const newPropRef = ref(db, `rooms/${roomId}/props/${newPropId}`);
+                set(newPropRef, { type: currentPropType, x: targetPos.x, y: targetPos.y, z: targetPos.z });
+            }
+            if (e.button === 2) { 
+                raycaster.setFromCamera(new THREE.Vector2(), camera);
+                const propMeshes = [];
+                Object.values(props).forEach(p => {
+                    if(p.mesh.isGroup) {
+                        p.mesh.traverse(child => { if(child.isMesh) child.userData.rootProp = p; });
+                        propMeshes.push(...p.mesh.children);
+                    } else {
+                        p.mesh.userData.rootProp = p;
+                        propMeshes.push(p.mesh);
+                    }
+                });
+                
+                const playerMeshes = Object.values(networkPlayers);
+                const targets = [...propMeshes, ...playerMeshes];
+
+                const intersects = raycaster.intersectObjects(targets, true);
+                if (intersects.length > 0) {
+                    let hitObject = intersects[0].object;
+                    grabDistance = intersects[0].distance;
+
+                    if (hitObject.userData.rootProp) {
+                        grabbedObj = hitObject.userData.rootProp;
+                        grabbedObj.body.mass = 0;
+                        grabIsPlayer = false;
+                    } else {
+                        while (hitObject.parent && !playerMeshes.includes(hitObject)) {
+                            hitObject = hitObject.parent;
+                        }
+                        if(playerMeshes.includes(hitObject)) {
+                            grabbedObj = hitObject;
+                            grabIsPlayer = true;
+                        }
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (e.button === 2 && grabbedObj) {
+                if (!grabIsPlayer) {
+                    grabbedObj.body.mass = 8;
+                    grabbedObj.body.updateMassProperties();
+                }
+                grabbedObj = null;
+                beamLine.visible = false;
+            }
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = Math.min(clock.getDelta(), 0.1);
+
+            if (gameActive) {
+                world.fixedStep();
+                camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
+
+                const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.91, playerBody.position.z);
+                const to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 1.05, playerBody.position.z);
+                const rayResult = new CANNON.RaycastResult();
+                world.raycastClosest(from, to, {}, rayResult);
+                canJump = rayResult.hasHit;
+
+                Object.keys(props).forEach(id => {
+                    props[id].mesh.position.copy(props[id].body.position);
+                    props[id].mesh.quaternion.copy(props[id].body.quaternion);
+                });
+
+                if (grabbedObj) {
+                    const targetPos = new THREE.Vector3();
+                    camera.getWorldDirection(targetPos).multiplyScalar(grabDistance).add(camera.position);
+
+                    if (!grabIsPlayer) {
+                        grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z);
+                        grabbedObj.body.velocity.set(0,0,0);
+                        set(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
+                            type: grabbedObj.type, x: targetPos.x, y: targetPos.y, z: targetPos.z
+                        });
+                    } else {
+                        const netId = grabbedObj.userData.networkId;
+                        set(ref(db, `rooms/${roomId}/players/${netId}/x`), targetPos.x);
+                        set(ref(db, `rooms/${roomId}/players/${netId}/y`), targetPos.y + 0.9);
+                        set(ref(db, `rooms/${roomId}/players/${netId}/z`), targetPos.z);
+                    }
+
+                    const positions = beamLine.geometry.attributes.position.array;
+                    positions[0] = camera.position.x; positions[1] = camera.position.y - 0.2; positions[2] = camera.position.z - 0.2;
+                    positions[3] = targetPos.x; positions[4] = targetPos.y; positions[5] = targetPos.z;
+                    beamLine.geometry.attributes.position.needsUpdate = true;
+                    beamLine.visible = true;
+                }
+
+                if (controls.isLocked) {
+                    inputDirection.z = Number(moveForward) - Number(moveBackward);
+                    inputDirection.x = Number(moveLeft) - Number(moveRight);
+                    inputDirection.normalize();
+
+                    const camTarget = new THREE.Vector3();
+                    camera.getWorldDirection(camTarget);
+                    camTarget.y = 0; camTarget.normalize();
+
+                    const camRight = new THREE.Vector3();
+                    camRight.crossVectors(camTarget, camera.up).normalize();
+
+                    const moveVector = new THREE.Vector3();
+                    moveVector.addScaledVector(camTarget, inputDirection.z * 7.5);
+                    moveVector.addScaledVector(camRight, inputDirection.x * 7.5);
+
+                    playerBody.velocity.x = moveVector.x;
+                    playerBody.velocity.z = moveVector.z;
+
+                    set(playerRef, { 
+                        name: username, 
+                        color: avatarColor, 
+                        isAdminStatus: isAdmin,
+                        x: camera.position.x, 
+                        y: camera.position.y, 
+                        z: camera.position.z 
+                    });
+                }
+            }
+
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera); 
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
