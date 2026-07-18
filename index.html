@@ -142,8 +142,8 @@
         <h2>Benny's Mod Sandbox</h2>
         <div class="menu-container">
             <div class="menu-box">
-                <label>Username</label>
-                <input type="text" id="username-input">
+                <label>Username (Max 10 chars)</label>
+                <input type="text" id="username-input" maxlength="10">
                 
                 <label>Avatar Model Variant</label>
                 <select id="avatar-input">
@@ -249,7 +249,7 @@
         • Press <strong>F</strong>: Delete Held Object<br>
         • Press <strong>Z</strong>: Toggle Physics Freeze on pointed object<br>
         • <strong>AFK Mode:</strong> Idle players turn into physics ragdoll props after 15s!<br>
-        • <strong>Nuke Condition:</strong> Staying completely AFK for 1 minute deletes this room folder!
+        • <strong>Auto-Clean:</strong> When a room hits 0 active players, it automatically self-deletes!
     </div>
 
     <script>
@@ -271,7 +271,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, onChildAdded, onChildRemoved, onChildChanged, remove, onDisconnect, update } 
+        import { getDatabase, ref, set, onValue, onChildAdded, onChildRemoved, onChildChanged, remove, onDisconnect, update, get } 
         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
         import * as THREE from 'three';
@@ -294,7 +294,7 @@
         const db = getDatabase(app);
 
         let roomId, playerId, username, avatarColor;
-        let playerRef, propsRef, envRef, adminRef, roomRef;
+        let playerRef, propsRef, envRef, adminRef, roomRef, playersListRef;
         let gameActive = false, isAdmin = false;
         
         // AFK Variables
@@ -302,7 +302,9 @@
         let isLocalAfk = false;
 
         const savedUsername = localStorage.getItem('bm_saved_username');
-        document.getElementById('username-input').value = savedUsername || "Builder_" + Math.floor(100 + Math.random() * 900);
+        // Slice the loaded string down if it happens to be longer than 10 characters
+        const defaultUser = savedUsername ? savedUsername.substring(0, 10) : "Builder_" + Math.floor(100 + Math.random() * 900);
+        document.getElementById('username-input').value = defaultUser.substring(0, 10);
 
         // --- ROOM LIST LISTENER ---
         onValue(ref(db, 'rooms'), (snapshot) => {
@@ -317,6 +319,8 @@
                 const pCount = roomsData[rId].players ? Object.keys(roomsData[rId].players).length : 0;
                 const propCount = roomsData[rId].props ? Object.keys(roomsData[rId].props).length : 0;
                 
+                if (pCount === 0) return;
+
                 const item = document.createElement('div');
                 item.className = 'server-item';
                 item.innerHTML = `<span>📂 <b>${rId}</b></span> <span>👥 ${pCount} | 📦 ${propCount}</span>`;
@@ -430,7 +434,10 @@
 
         // --- START GAME ---
         document.getElementById('start-btn').addEventListener('click', () => {
-            username = document.getElementById('username-input').value.trim() || "Player";
+            let userRaw = document.getElementById('username-input').value.trim() || "Player";
+            // String clipping enforcement layer to secure name limits to exactly 10 characters
+            username = userRaw.substring(0, 10);
+            
             avatarColor = parseInt(document.getElementById('avatar-input').value);
             roomId = document.getElementById('room-input').value.trim() || "global";
             playerId = Math.random().toString(36).substring(2, 9);
@@ -439,6 +446,7 @@
             localStorage.setItem('bm_saved_username', username);
 
             roomRef = ref(db, `rooms/${roomId}`);
+            playersListRef = ref(db, `rooms/${roomId}/players`);
             playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
             propsRef = ref(db, `rooms/${roomId}/props`);
             envRef = ref(db, `rooms/${roomId}/environment`);
@@ -446,7 +454,7 @@
 
             onDisconnect(playerRef).remove();
             
-            onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
+            onValue(playersListRef, (snap) => {
                 if (gameActive && snap.exists()) {
                     if (!Object.keys(snap.val()).includes(playerId)) location.reload();
                 }
@@ -487,7 +495,16 @@
                 }
             });
 
-            onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
+            onChildRemoved(playersListRef, () => {
+                get(playersListRef).then((snapshot) => {
+                    if (!snapshot.exists() || Object.keys(snapshot.val()).length === 0) {
+                        console.log("Room has 0 players left. Clearing room directory...");
+                        remove(roomRef);
+                    }
+                });
+            });
+
+            onValue(playersListRef, (snapshot) => {
                 const data = snapshot.val() || {};
                 const listPanel = document.getElementById('player-list-content');
                 listPanel.innerHTML = ""; 
@@ -838,13 +855,11 @@
                 if(afkTimerCheck > 1.0) {
                     afkTimerCheck = 0;
                     
-                    // Turn player into physics prop if idle 15 seconds
                     if (Date.now() - lastInputTime > 15000 && !isLocalAfk) {
                         isLocalAfk = true;
                         update(playerRef, { afk: true });
                     }
                     
-                    // DELETE THE ROOM FOLDER COMPLETELY IF AFK FOR 1 MINUTE
                     if (Date.now() - lastInputTime > 60000) {
                         remove(roomRef);
                     }
@@ -927,10 +942,9 @@
                     beamLine.visible = true;
                 }
 
-                // --- INTEGRATED WALK SPEED AND STRADING FIXES HERE ---
                 if (controls.isLocked && !isFlying) {
                     let inputZ = Number(moveForward) - Number(moveBackward);
-                    let inputX = Number(moveRight) - Number(moveLeft); // FIXED STRAFE VECTOR INVERSION
+                    let inputX = Number(moveRight) - Number(moveLeft);
 
                     const camTarget = new THREE.Vector3(); camera.getWorldDirection(camTarget);
                     camTarget.y = 0; camTarget.normalize();
