@@ -128,6 +128,8 @@
 </head>
 <body>
 
+    <audio id="bg-music" loop></audio>
+
     <div id="error-screen">
         <div class="error-box">
             <h2 style="color: #ff4444; margin-top: 0;">Game Error Encountered</h2>
@@ -222,6 +224,17 @@
         <div id="admin-panel" class="menu-section">
             <h4>Admin Utility Options</h4>
             <button class="admin-btn" id="clear-room-btn">CLEAR ALL PROPS</button>
+            
+            <div style="margin-top: 12px; border-top: 1px dashed #555; padding-top: 10px;">
+                <label style="font-size: 13px; color: #ccc; font-weight: bold;">Room Background Music</label>
+                <select id="admin-music-select" style="width: 100%; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-top: 4px;">
+                    <option value="">None / Mute</option>
+                    <option value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">Preset: Ambient Synth 1</option>
+                    <option value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3">Preset: Ambient Synth 2</option>
+                    <option value="custom">Upload Custom Music Track...</option>
+                </select>
+                <input type="file" id="admin-music-upload" accept="audio/*" style="margin-top: 6px; font-size: 11px; color: #ccc; display: none; width: 100%;">
+            </div>
         </div>
     </div>
 
@@ -235,7 +248,8 @@
         • Press <strong>G</strong>: Toggle Fly Mode (Space=Up, Shift=Down)<br>
         • Press <strong>F</strong>: Delete Held Object<br>
         • Press <strong>Z</strong>: Toggle Physics Freeze on pointed object<br>
-        • <strong>AFK Mode:</strong> Idle players turn into physics ragdoll props after 15s!
+        • <strong>AFK Mode:</strong> Idle players turn into physics ragdoll props after 15s!<br>
+        • <strong>Nuke Condition:</strong> Staying completely AFK for 1 minute deletes this room folder!
     </div>
 
     <script>
@@ -394,7 +408,7 @@
         const networkPlayers = {};
 
         let currentPropType = 'cube';
-        let currentToolMode = 'spawn'; // Options: spawn, color, remover, ignite
+        let currentToolMode = 'spawn';
 
         window.selectProp = function(type, element) {
             currentPropType = type;
@@ -449,6 +463,8 @@
             controls.lock();
             gameActive = true;
             resetInputTimer();
+            
+            document.getElementById('bg-music').play().catch(() => {});
         });
 
         function resetInputTimer() {
@@ -501,7 +517,6 @@
                     `;
                     listPanel.appendChild(pRow);
 
-                    // Create or track remote player physics prop structure
                     if (!networkPlayers[id]) {
                         const group = new THREE.Group();
                         const bMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: pData.color || 0xff0000 }));
@@ -527,7 +542,6 @@
 
                     const netObj = networkPlayers[id];
 
-                    // If player is AFK, they undergo dynamic physics updates controlled by room interactions
                     if (pData.afk) {
                         netObj.body.type = CANNON.Body.DYNAMIC;
                         netObj.body.mass = 50;
@@ -539,7 +553,6 @@
                             netObj.mesh.quaternion.copy(netObj.body.quaternion);
                         }
                     } else {
-                        // Regular client sync tracking when active
                         netObj.body.type = CANNON.Body.STATIC;
                         netObj.body.mass = 0;
                         netObj.body.updateMassProperties();
@@ -556,6 +569,17 @@
                 if (env) {
                     if (env.skybox) scene.background.setHex(parseInt(env.skybox));
                     if (env.ground) groundMat.color.setHex(parseInt(env.ground));
+                    
+                    const audioEl = document.getElementById('bg-music');
+                    if (env.musicUrl) {
+                        if (audioEl.src !== env.musicUrl) {
+                            audioEl.src = env.musicUrl;
+                            audioEl.play().catch(() => {});
+                        }
+                    } else {
+                        audioEl.pause();
+                        audioEl.src = "";
+                    }
                 }
             });
 
@@ -600,6 +624,34 @@
         });
         document.getElementById('clear-room-btn').addEventListener('click', () => {
             if (isAdmin) remove(propsRef);
+        });
+
+        // Admin Background Music Selectors
+        document.getElementById('admin-music-select').addEventListener('change', (e) => {
+            if (!isAdmin) return;
+            const val = e.target.value;
+            const uploadInput = document.getElementById('admin-music-upload');
+            if (val === 'custom') {
+                uploadInput.style.display = 'block';
+            } else {
+                uploadInput.style.display = 'none';
+                set(ref(db, `rooms/${roomId}/environment/musicUrl`), val);
+            }
+        });
+
+        document.getElementById('admin-music-upload').addEventListener('change', (e) => {
+            if (!isAdmin) return;
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 2.5 * 1024 * 1024) {
+                alert("Audio file too large! Please select an audio loop under 2.5MB to stream across real-time servers.");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                set(ref(db, `rooms/${roomId}/environment/musicUrl`), evt.target.result);
+            };
+            reader.readAsDataURL(file);
         });
 
         // --- INPUT EVENT HANDLING ---
@@ -690,7 +742,6 @@
             if (!controls.isLocked || !gameActive) return;
             resetInputTimer();
 
-            // Left Click (Use Selected Tool System)
             if (e.button === 0) {
                 const targetPos = new THREE.Vector3();
                 camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
@@ -701,7 +752,6 @@
                         type: currentPropType, x: targetPos.x, y: targetPos.y, z: targetPos.z, frozen: false, color: Math.floor(Math.random()*16777215)
                     });
                 } else {
-                    // Tool hit logic
                     raycaster.setFromCamera(new THREE.Vector2(), camera);
                     const propMeshes = Object.values(props).map(p => p.mesh);
                     const playerMeshes = Object.values(networkPlayers).map(p => p.mesh);
@@ -726,7 +776,6 @@
                 }
             }
 
-            // Right Click (Physgun Grab Handling both Props and AFK physics-activated Players)
             if (e.button === 2) { 
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
                 const propMeshes = Object.values(props).map(p => p.mesh);
@@ -763,7 +812,7 @@
                 if (!grabIsPlayerId) {
                     grabbedObj.body.mass = 8;
                     grabbedObj.body.updateMassProperties();
-                    grabbedObj.body.velocity.copy(grabbedVelocity).scale(2.2); // Fling scaling force
+                    grabbedObj.body.velocity.copy(grabbedVelocity).scale(2.2);
                     
                     update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
                         frozen: false, x: grabbedObj.body.position.x, y: grabbedObj.body.position.y, z: grabbedObj.body.position.z
@@ -785,13 +834,19 @@
             const delta = Math.min(clock.getDelta(), 0.1);
 
             if (gameActive) {
-                // AFK engine processing verification
                 afkTimerCheck += delta;
                 if(afkTimerCheck > 1.0) {
                     afkTimerCheck = 0;
+                    
+                    // Turn player into physics prop if idle 15 seconds
                     if (Date.now() - lastInputTime > 15000 && !isLocalAfk) {
                         isLocalAfk = true;
                         update(playerRef, { afk: true });
+                    }
+                    
+                    // DELETE THE ROOM FOLDER COMPLETELY IF AFK FOR 1 MINUTE
+                    if (Date.now() - lastInputTime > 60000) {
+                        remove(roomRef);
                     }
                 }
 
@@ -811,13 +866,12 @@
                     moveDir.addScaledVector(camRight, flyVec.x);
                     if (flyUp) moveDir.y += 1; if (flyDown) moveDir.y -= 1;
 
-                    playerBody.position.x += moveDir.x * 22 * delta;
-                    playerBody.position.y += moveDir.y * 22 * delta;
-                    playerBody.position.z += moveDir.z * 22 * delta;
+                    playerBody.position.x += moveDir.x * 24 * delta;
+                    playerBody.position.y += moveDir.y * 24 * delta;
+                    playerBody.position.z += moveDir.z * 24 * delta;
                     playerBody.velocity.set(0, 0, 0);
                 }
 
-                // Update visual group mapping orientation
                 localVisualGroup.position.copy(playerBody.position);
                 const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir);
                 localVisualGroup.rotation.y = Math.atan2(-camDir.x, -camDir.z);
@@ -830,7 +884,6 @@
                     camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
                 }
 
-                // Raycast grounding jump verification
                 const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
                 const to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.99, playerBody.position.z);
                 const rayResult = new CANNON.RaycastResult();
@@ -842,7 +895,6 @@
                     props[id].mesh.quaternion.copy(props[id].body.quaternion);
                 });
 
-                // Physgun execution processing
                 if (grabbedObj) {
                     const targetPos = new THREE.Vector3();
                     camera.getWorldDirection(targetPos).multiplyScalar(grabDistance).add(camera.position);
@@ -863,7 +915,6 @@
                             type: grabbedObj.type, x: targetPos.x, y: targetPos.y, z: targetPos.z, frozen: false
                         });
                     } else {
-                        // Push grabbed AFK positions directly to network coordinates 
                         set(ref(db, `rooms/${roomId}/players/${grabIsPlayerId}/x`), targetPos.x);
                         set(ref(db, `rooms/${roomId}/players/${grabIsPlayerId}/y`), targetPos.y + 0.5);
                         set(ref(db, `rooms/${roomId}/players/${grabIsPlayerId}/z`), targetPos.z);
@@ -876,18 +927,18 @@
                     beamLine.visible = true;
                 }
 
-                // Handle basic movement values 
+                // --- INTEGRATED WALK SPEED AND STRADING FIXES HERE ---
                 if (controls.isLocked && !isFlying) {
                     let inputZ = Number(moveForward) - Number(moveBackward);
-                    let inputX = Number(moveLeft) - Number(moveRight);
+                    let inputX = Number(moveRight) - Number(moveLeft); // FIXED STRAFE VECTOR INVERSION
 
                     const camTarget = new THREE.Vector3(); camera.getWorldDirection(camTarget);
                     camTarget.y = 0; camTarget.normalize();
                     const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize();
 
                     const moveVector = new THREE.Vector3().addScaledVector(camTarget, inputZ).addScaledVector(camRight, inputX).normalize();
-                    playerBody.velocity.x = moveVector.x * 14.0;
-                    playerBody.velocity.z = moveVector.z * 14.0;
+                    playerBody.velocity.x = moveVector.x * 24.0; 
+                    playerBody.velocity.z = moveVector.z * 24.0; 
                 }
 
                 if (controls.isLocked) {
