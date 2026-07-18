@@ -34,6 +34,14 @@
         .menu-box button { background: #21a03c; color: white; font-weight: bold; cursor: pointer; }
         .menu-box button:hover { background: #2cbd4b; }
 
+        /* ERROR/PROTOCOL ALERT SCREEN */
+        #error-screen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #4a1515; display: none; flex-direction: column; 
+            align-items: center; justify-content: center; z-index: 200; color: white; padding: 20px; box-sizing: border-box;
+        }
+        .error-box { background: rgba(0,0,0,0.5); padding: 25px; border-radius: 8px; max-width: 500px; border: 1px solid #ff4444; }
+
         /* Q MENU */
         #spawn-menu {
             position: absolute; top: 50%; left: 50%;
@@ -83,9 +91,18 @@
             color: white; background: rgba(0,0,0,0.7);
             padding: 12px; border-radius: 5px; pointer-events: none; font-size: 13px; display: none;
         }
+        .protocol-warning { color: #ffbc00; font-size: 12px; margin-top: 5px; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
+
+    <div id="error-screen">
+        <div class="error-box">
+            <h2 style="margin-top:0; color:#ff6b6b;">Engine Connection Error</h2>
+            <p id="error-message">An unknown error occurred while initializing the network services.</p>
+            <p style="font-size: 13px; color: #ccc;"><strong>Tip:</strong> If you are opening this file directly via double-click (<code>file://</code>), modern web browsers block modular scripts due to security policy rules. Please run via a local web server tool.</p>
+        </div>
+    </div>
 
     <div id="start-screen">
         <h2>Benny's Mod Sandbox</h2>
@@ -104,6 +121,7 @@
             <input type="text" id="room-input" value="sandbox-1">
             
             <button id="start-btn">LAUNCH GAME</button>
+            <div id="protocol-check" class="protocol-warning"></div>
         </div>
     </div>
 
@@ -167,6 +185,28 @@
         • Press <strong>Z</strong>: Freeze Object Infront of You
     </div>
 
+    <script>
+        // Catch network configuration initialization flaws prior to runtime loading
+        window.showVisualError = function(msg) {
+            const errScreen = document.getElementById('error-screen');
+            if (errScreen) {
+                document.getElementById('error-message').textContent = msg;
+                errScreen.style.display = 'flex';
+            }
+        };
+
+        window.addEventListener('error', function(e) {
+            window.showVisualError(e.message || "A runtime execution error occurred inside the sandbox scripts.");
+        });
+
+        // Pre-check the browser protocol setup
+        if (window.location.protocol === 'file:') {
+            document.addEventListener("DOMContentLoaded", function() {
+                document.getElementById('protocol-check').innerHTML = "⚠️ WARNING: You opened this file via double-click (file:// protocol). Security features will likely block Firebase connections. Run this with a Local Server!";
+            });
+        }
+    </script>
+
     <script type="importmap">
         {
             "imports": {
@@ -199,8 +239,13 @@
             measurementId: "G-TB8EBLGN6X"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+        let app, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getDatabase(app);
+        } catch (initializationError) {
+            window.showVisualError("Firebase Initialization Error: " + initializationError.message);
+        }
 
         let roomId, playerId, username, avatarColor;
         let playerRef, propsRef, envRef, adminRef, roomRef;
@@ -244,7 +289,6 @@
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
         world.addBody(groundBody);
 
-        // Physics material setup to handle prop/server surfing friction properly
         const playerPhysMat = new CANNON.Material("playerMaterial");
         const groundPhysMat = new CANNON.Material("groundMaterial");
         const propPhysMat = new CANNON.Material("propMaterial");
@@ -261,7 +305,6 @@
         playerBody.position.set(0, 3, 5);
         world.addBody(playerBody);
 
-        // Local player visual reference for 3rd person visibility toggles
         const localVisualGroup = new THREE.Group();
         const localBodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: 0xff3333 }));
         localBodyMesh.position.y = 0.6; localVisualGroup.add(localBodyMesh);
@@ -290,11 +333,9 @@
         let grabDistance = 0;
         let grabIsPlayer = false;
         
-        // Runtime variables for features
         let isThirdPerson = false;
         let isFlying = false;
 
-        // GMOD Swing-Throw Mechanics structural updates
         let lastGrabbedPos = new CANNON.Vec3();
         let grabbedVelocity = new CANNON.Vec3();
         
@@ -310,46 +351,50 @@
 
         // --- START GAME INITIALIZATION ---
         document.getElementById('start-btn').addEventListener('click', () => {
-            username = document.getElementById('username-input').value.trim() || "Player";
-            avatarColor = parseInt(document.getElementById('avatar-input').value);
-            roomId = document.getElementById('room-input').value.trim() || "global";
-            playerId = Math.random().toString(36).substring(2, 9);
+            try {
+                username = document.getElementById('username-input').value.trim() || "Player";
+                avatarColor = parseInt(document.getElementById('avatar-input').value);
+                roomId = document.getElementById('room-input').value.trim() || "global";
+                playerId = Math.random().toString(36).substring(2, 9);
 
-            localBodyMesh.material.color.setHex(avatarColor);
-            localStorage.setItem('bm_saved_username', username);
+                localBodyMesh.material.color.setHex(avatarColor);
+                localStorage.setItem('bm_saved_username', username);
 
-            roomRef = ref(db, `rooms/${roomId}`);
-            playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
-            propsRef = ref(db, `rooms/${roomId}/props`);
-            envRef = ref(db, `rooms/${roomId}/environment`);
-            adminRef = ref(db, `rooms/${roomId}/admin`);
+                roomRef = ref(db, `rooms/${roomId}`);
+                playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
+                propsRef = ref(db, `rooms/${roomId}/props`);
+                envRef = ref(db, `rooms/${roomId}/environment`);
+                adminRef = ref(db, `rooms/${roomId}/admin`);
 
-            onDisconnect(playerRef).remove();
-            
-            onDisconnect(ref(db, `rooms/${roomId}/players`)).then(() => {
-                onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
-                    if (snap.exists() && Object.keys(snap.val()).length <= 1) {
-                        remove(roomRef);
+                onDisconnect(playerRef).remove();
+                
+                onDisconnect(ref(db, `rooms/${roomId}/players`)).then(() => {
+                    onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
+                        if (snap.exists() && Object.keys(snap.val()).length <= 1) {
+                            remove(roomRef);
+                        }
+                    }, { onlyOnce: true });
+                });
+
+                onValue(ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`), (snapshot) => {
+                    if (snapshot.val()) {
+                        alert("You have been banned from this private sandbox room.");
+                        location.reload();
                     }
-                }, { onlyOnce: true });
-            });
+                });
 
-            onValue(ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`), (snapshot) => {
-                if (snapshot.val()) {
-                    alert("You have been banned from this private sandbox room.");
-                    location.reload();
-                }
-            });
+                setupMultiplayerListeners();
 
-            setupMultiplayerListeners();
-
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('crosshair').style.display = 'block';
-            document.getElementById('instructions').style.display = 'block';
-            document.getElementById('player-list-panel').style.display = 'block';
-            
-            controls.lock();
-            gameActive = true;
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('crosshair').style.display = 'block';
+                document.getElementById('instructions').style.display = 'block';
+                document.getElementById('player-list-panel').style.display = 'block';
+                
+                controls.lock();
+                gameActive = true;
+            } catch (connectionError) {
+                window.showVisualError("Failed to build room listeners. Details: " + connectionError.message);
+            }
         });
 
         function setupMultiplayerListeners() {
@@ -361,7 +406,7 @@
                     document.getElementById('admin-panel').style.display = 'block';
                     document.querySelectorAll('.ban-action').forEach(b => b.style.display = 'inline-block');
                 }
-            });
+            }, (err) => { window.showVisualError("Database sync error: " + err.message); });
 
             onValue(playerRef, (snapshot) => {
                 if (gameActive && !snapshot.exists()) {
@@ -466,7 +511,6 @@
                 }
             });
 
-            // Live updates for freezing logic/dynamic mapping parameters
             propsRef.on('child_changed', (snapshot) => {
                 const id = snapshot.key;
                 const data = snapshot.val();
@@ -509,7 +553,6 @@
             if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { if (isFlying) flyDown = true; }
             if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
             
-            // Actions & Modifiers
             if (e.code === 'KeyJ') {
                 isThirdPerson = !isThirdPerson;
                 localVisualGroup.visible = isThirdPerson;
@@ -557,7 +600,6 @@
             if (e.code === 'KeyQ') { menu.style.display = 'none'; controls.lock(); }
         });
 
-        // --- OBJ FACTORY ---
         function createLocalProp(id, type, x, y, z, isFrozen) {
             let mesh, shape;
             let size = 1.2;
@@ -646,7 +688,6 @@
                     grabbedObj.body.mass = 8;
                     grabbedObj.body.updateMassProperties();
                     
-                    // Apply frame-calculated velocity vector on release to support true physics throwing
                     grabbedObj.body.velocity.copy(grabbedVelocity).scale(1.8);
                     
                     update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
@@ -671,7 +712,6 @@
                 if (!isFlying) {
                     world.fixedStep();
                 } else {
-                    // Flight calculations bypassing physics loop
                     const flySpeed = 12;
                     let flyVec = new THREE.Vector3();
                     if (moveForward) flyVec.z += 1;
@@ -696,7 +736,6 @@
                     playerBody.velocity.set(0, 0, 0);
                 }
 
-                // Smooth perspective orientation updates
                 localVisualGroup.position.copy(playerBody.position);
                 const camDir = new THREE.Vector3();
                 camera.getWorldDirection(camDir);
@@ -711,7 +750,6 @@
                     camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
                 }
 
-                // Floor raycast logic updates
                 const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.91, playerBody.position.z);
                 const to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 1.05, playerBody.position.z);
                 const rayResult = new CANNON.RaycastResult();
@@ -730,7 +768,6 @@
                     if (!grabIsPlayer) {
                         grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z);
                         
-                        // Delta calculations mapping relative changes across frame refreshes
                         if (delta > 0) {
                             grabbedVelocity.set(
                                 (grabbedObj.body.position.x - lastGrabbedPos.x) / delta,
