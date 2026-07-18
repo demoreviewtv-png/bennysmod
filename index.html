@@ -287,15 +287,56 @@
         playerBody.position.set(0, 3, 5);
         world.addBody(playerBody);
 
-        const localVisualGroup = new THREE.Group();
-        const localBodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: 0xff3333 }));
-        localBodyMesh.position.y = 0.6; localVisualGroup.add(localBodyMesh);
-        const localHeadMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-        localHeadMesh.position.y = 1.35; localVisualGroup.add(localHeadMesh);
-        const localVisorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
-        localVisorMesh.position.set(0, 1.35, 0.25); localVisualGroup.add(localVisorMesh);
-        scene.add(localVisualGroup);
-        localVisualGroup.visible = false;
+        // Helper function to build the multi-jointed modular character structure
+        function buildAvatarGroup(colorHex) {
+            const rootGroup = new THREE.Group();
+
+            // Torso / Body
+            const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 0.9, 10), new THREE.MeshStandardMaterial({ color: colorHex }));
+            bodyMesh.position.y = 0.15; // Centered inside the bounds
+            rootGroup.add(bodyMesh);
+
+            // Detached Head Group (Allows pitch tilting separate from body rotation)
+            const headGroup = new THREE.Group();
+            headGroup.position.y = 0.75; 
+            
+            const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            headGroup.add(headMesh);
+
+            const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+            visorMesh.position.set(0, 0, 0.24); 
+            headGroup.add(visorMesh);
+            
+            rootGroup.add(headGroup);
+
+            // Left Leg Pivot Group
+            const leftLegPivot = new THREE.Group();
+            leftLegPivot.position.set(-0.2, -0.3, 0);
+            const leftLegMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.6, 8), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            leftLegMesh.position.y = -0.3; 
+            leftLegPivot.add(leftLegMesh);
+            rootGroup.add(leftLegPivot);
+
+            // Right Leg Pivot Group
+            const rightLegPivot = new THREE.Group();
+            rightLegPivot.position.set(0.2, -0.3, 0);
+            const rightLegMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.6, 8), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            rightLegMesh.position.y = -0.3;
+            rightLegPivot.add(rightLegMesh);
+            rootGroup.add(rightLegPivot);
+
+            return {
+                root: rootGroup,
+                headGroup: headGroup,
+                leftLeg: leftLegPivot,
+                rightLeg: rightLegPivot,
+                bodyMesh: bodyMesh
+            };
+        }
+
+        const localAvatar = buildAvatarGroup(0xff3333);
+        scene.add(localAvatar.root);
+        localAvatar.root.visible = false;
 
         const beamMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 3 });
         const beamGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
@@ -337,7 +378,7 @@
             roomId = document.getElementById('room-input').value.trim() || "global";
             playerId = Math.random().toString(36).substring(2, 9);
 
-            localBodyMesh.material.color.setHex(avatarColor);
+            localAvatar.bodyMesh.material.color.setHex(avatarColor);
             localStorage.setItem('bm_saved_username', username);
 
             roomRef = ref(db, `rooms/${roomId}`);
@@ -407,7 +448,7 @@
 
                 Object.keys(networkPlayers).forEach(id => {
                     if (!data[id]) {
-                        scene.remove(networkPlayers[id]);
+                        scene.remove(networkPlayers[id].root);
                         delete networkPlayers[id];
                     }
                 });
@@ -437,32 +478,39 @@
                     listPanel.appendChild(pRow);
 
                     if (!networkPlayers[id]) {
-                        const group = new THREE.Group();
-                        
-                        const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: data[id].color || 0xff0000 }));
-                        bodyMesh.position.y = 0.6; group.add(bodyMesh);
-
-                        const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-                        headMesh.position.y = 1.35; group.add(headMesh);
-
-                        const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
-                        visorMesh.position.set(0, 1.35, 0.25); group.add(visorMesh);
+                        const netAvatar = buildAvatarGroup(data[id].color || 0xff0000);
 
                         const nameDiv = document.createElement('div');
                         nameDiv.className = 'username-tag';
                         nameDiv.innerHTML = `${userStr} <span class="admin-tag">${data[id].isAdminStatus ? 'ADMIN' : ''}</span>`;
                         
                         const nameLabel = new CSS2DObject(nameDiv);
-                        nameLabel.position.set(0, 1.9, 0); group.add(nameLabel);
+                        nameLabel.position.set(0, 1.4, 0); 
+                        netAvatar.root.add(nameLabel);
 
-                        networkPlayers[id] = group;
-                        networkPlayers[id].userData = { networkId: id };
-                        scene.add(networkPlayers[id]);
+                        networkPlayers[id] = netAvatar;
+                        networkPlayers[id].root.userData = { networkId: id };
+                        scene.add(networkPlayers[id].root);
                     }
 
-                    networkPlayers[id].position.set(data[id].x, data[id].y - 0.9, data[id].z);
-                    if(data[id].rotationY !== undefined) {
-                        networkPlayers[id].rotation.y = data[id].rotationY;
+                    // Directly sync position to true physics center
+                    networkPlayers[id].root.position.set(data[id].x, data[id].y, data[id].z);
+                    
+                    if(data[id].rotationY !== undefined) networkPlayers[id].root.rotation.y = data[id].rotationY;
+                    if(data[id].headPitch !== undefined) networkPlayers[id].headGroup.rotation.x = data[id].headPitch;
+                    if(data[id].headYaw !== undefined) networkPlayers[id].headGroup.rotation.y = data[id].headYaw;
+
+                    // Animate remote player legs based on network states
+                    if (data[id].isFlyingState) {
+                        networkPlayers[id].leftLeg.rotation.x = 0.7;
+                        networkPlayers[id].rightLeg.rotation.x = 0.7;
+                    } else if (data[id].isMovingState) {
+                        const t = window.performance.now() * 0.012;
+                        networkPlayers[id].leftLeg.rotation.x = Math.sin(t) * 0.6;
+                        networkPlayers[id].rightLeg.rotation.x = -Math.sin(t) * 0.6;
+                    } else {
+                        networkPlayers[id].leftLeg.rotation.x = 0;
+                        networkPlayers[id].rightLeg.rotation.x = 0;
                     }
                 });
             });
@@ -530,7 +578,7 @@
                 if (isFlying) {
                     flyUp = true;
                 } else if (canJump) { 
-                    playerBody.velocity.y = 10.5; // Responsive, fast sandbox jump force
+                    playerBody.velocity.y = 10.5; 
                     canJump = false; 
                 }
             }
@@ -539,7 +587,7 @@
             
             if (e.code === 'KeyJ') {
                 isThirdPerson = !isThirdPerson;
-                localVisualGroup.visible = isThirdPerson;
+                localAvatar.root.visible = isThirdPerson;
             }
             if (e.code === 'KeyG') {
                 isFlying = !isFlying;
@@ -636,7 +684,7 @@
                     propMeshes.push(p.mesh);
                 });
                 
-                const playerMeshes = Object.values(networkPlayers);
+                const playerMeshes = Object.values(networkPlayers).map(p => p.root);
                 const targets = [...propMeshes, ...playerMeshes];
 
                 const intersects = raycaster.intersectObjects(targets, true);
@@ -690,16 +738,17 @@
             const delta = Math.min(clock.getDelta(), 0.1);
 
             if (gameActive) {
-                // Keep physics world simulated unconditionally so environment and objects still drop under gravity
                 world.fixedStep();
+
+                let isMoving = moveForward || moveBackward || moveLeft || moveRight;
 
                 if (isFlying) {
                     const flySpeed = 18; 
                     let flyVec = new THREE.Vector3();
                     if (moveForward) flyVec.z += 1;
                     if (moveBackward) flyVec.z -= 1;
-                    if (moveLeft) flyVec.x -= 1; // Fixed left flight strafing
-                    if (moveRight) flyVec.x += 1; // Fixed right flight strafing
+                    if (moveLeft) flyVec.x -= 1; 
+                    if (moveRight) flyVec.x += 1; 
                     flyVec.normalize();
 
                     const camTarget = new THREE.Vector3();
@@ -716,26 +765,48 @@
                     playerBody.position.y += moveDir.y * flySpeed * delta;
                     playerBody.position.z += moveDir.z * flySpeed * delta;
                     
-                    // Constantly override player physical velocities/forces so gravity won't drag down the player while flying
                     playerBody.velocity.set(0, 0, 0);
                     playerBody.force.set(0, 0, 0);
                 }
 
-                localVisualGroup.position.copy(playerBody.position);
+                // Match avatar position to true physics cylinder center
+                localAvatar.root.position.copy(playerBody.position);
+
                 const camDir = new THREE.Vector3();
                 camera.getWorldDirection(camDir);
-                localVisualGroup.rotation.y = Math.atan2(-camDir.x, -camDir.z);
+
+                // Body turns with camera horizontally
+                const targetYaw = Math.atan2(-camDir.x, -camDir.z);
+                localAvatar.root.rotation.y = targetYaw;
+
+                // Head turns with camera detached (computes raw relative view angle pitch/yaw shifts)
+                const camEuler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+                localAvatar.headGroup.rotation.x = camEuler.x; // Pitch Look Up/Down
+                localAvatar.headGroup.rotation.y = 0;          // Relative to body yaw orientation
+
+                // Local dynamic Leg Animation updates
+                if (isFlying) {
+                    localAvatar.leftLeg.rotation.x = 0.7; // Tucked/curled backward
+                    localAvatar.rightLeg.rotation.x = 0.7;
+                } else if (isMoving && controls.isLocked) {
+                    const t = window.performance.now() * 0.012;
+                    localAvatar.leftLeg.rotation.x = Math.sin(t) * 0.6;
+                    localAvatar.rightLeg.rotation.x = -Math.sin(t) * 0.6;
+                } else {
+                    localAvatar.leftLeg.rotation.x = 0;
+                    localAvatar.rightLeg.rotation.x = 0;
+                }
 
                 if (isThirdPerson) {
                     const backCamPos = new THREE.Vector3();
-                    backCamPos.copy(playerBody.position).add(new THREE.Vector3(0, 0.5, 0));
+                    backCamPos.copy(playerBody.position).add(new THREE.Vector3(0, 0.4, 0));
                     backCamPos.addScaledVector(camDir, -4);
                     camera.position.copy(backCamPos);
                 } else {
-                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
+                    // Eyeline aligned with detached head level inside capsule bounds
+                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.75, playerBody.position.z);
                 }
 
-                // Check grounding by raycasting downwards relative to player height (1.8m height total, center is at position)
                 const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
                 const to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.98, playerBody.position.z);
                 const rayResult = new CANNON.RaycastResult();
@@ -770,7 +841,7 @@
                     } else {
                         const netId = grabbedObj.userData.networkId;
                         set(ref(db, `rooms/${roomId}/players/${netId}/x`), targetPos.x);
-                        set(ref(db, `rooms/${roomId}/players/${netId}/y`), targetPos.y + 0.9);
+                        set(ref(db, `rooms/${roomId}/players/${netId}/y`), targetPos.y);
                         set(ref(db, `rooms/${roomId}/players/${netId}/z`), targetPos.z);
                     }
 
@@ -781,12 +852,11 @@
                     beamLine.visible = true;
                 }
 
-                // Handle WASD movement vectors relative to camera looking angle
                 if (controls.isLocked && !isFlying) {
                     const speedMultiplier = 14.0; 
                     
                     let inputZ = Number(moveForward) - Number(moveBackward);
-                    let inputX = Number(moveRight) - Number(moveLeft); // Fixed left/right walking strafing orientation
+                    let inputX = Number(moveRight) - Number(moveLeft); 
 
                     const camTarget = new THREE.Vector3();
                     camera.getWorldDirection(camTarget);
@@ -811,9 +881,13 @@
                         color: avatarColor, 
                         isAdminStatus: isAdmin,
                         x: playerBody.position.x, 
-                        y: playerBody.position.y + 0.5, 
+                        y: playerBody.position.y, // True unmodified center
                         z: playerBody.position.z,
-                        rotationY: localVisualGroup.rotation.y
+                        rotationY: localAvatar.root.rotation.y,
+                        headPitch: localAvatar.headGroup.rotation.x,
+                        headYaw: localAvatar.headGroup.rotation.y,
+                        isMovingState: isMoving,
+                        isFlyingState: isFlying
                     });
                 }
             }
