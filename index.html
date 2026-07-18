@@ -347,14 +347,18 @@
             envRef = ref(db, `rooms/${roomId}/environment`);
             adminRef = ref(db, `rooms/${roomId}/admin`);
 
+            /* FIXED: Cleared faulty onDisconnect().then block */
             onDisconnect(playerRef).remove();
             
-            onDisconnect(ref(db, `rooms/${roomId}/players`)).then(() => {
-                onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
-                    if (snap.exists() && Object.keys(snap.val()).length <= 1) {
-                        remove(roomRef);
+            onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
+                if (gameActive && snap.exists()) {
+                    const remainingPlayers = Object.keys(snap.val());
+                    if (remainingPlayers.length <= 1 && remainingPlayers.includes(playerId)) {
+                        onDisconnect(roomRef).remove();
+                    } else {
+                        onDisconnect(roomRef).cancel();
                     }
-                }, { onlyOnce: true });
+                }
             });
 
             onValue(ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`), (snapshot) => {
@@ -489,7 +493,6 @@
                 }
             });
 
-            /* FIXED: Replaced old .on syntax with proper v10 onChildChanged syntax */
             onChildChanged(propsRef, (snapshot) => {
                 const id = snapshot.key;
                 const data = snapshot.val();
