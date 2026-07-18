@@ -160,7 +160,11 @@
         • Click screen to look (WASD to move, Space to Jump)<br>
         • Hold <strong>Q</strong> to open Spawn Menu & Options<br>
         • Left-Click to spawn selected prop<br>
-        • Right-Click & Hold to <strong>Grab, Swing & Throw Objects / Other Players</strong>
+        • Right-Click & Hold to <strong>Grab & Swing Objects / Players</strong><br>
+        • Press <strong>J</strong>: Toggle 1st / 3rd Person View<br>
+        • Press <strong>G</strong>: Toggle Fly Mode (Space=Up, Shift=Down)<br>
+        • Press <strong>F</strong>: Delete Held Object<br>
+        • Press <strong>Z</strong>: Freeze Object Infront of You
     </div>
 
     <script type="importmap">
@@ -175,7 +179,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, onChildAdded, onChildRemoved, remove, onDisconnect } 
+        import { getDatabase, ref, set, onValue, onChildAdded, onChildRemoved, remove, onDisconnect, update } 
         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
         import * as THREE from 'three';
@@ -240,10 +244,15 @@
         groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
         world.addBody(groundBody);
 
+        // Physics material setup to handle surfing/friction properly
         const playerPhysMat = new CANNON.Material("playerMaterial");
         const groundPhysMat = new CANNON.Material("groundMaterial");
-        const contactMat = new CANNON.ContactMaterial(playerPhysMat, groundPhysMat, { friction: 0.0, restitution: 0.0 });
+        const propPhysMat = new CANNON.Material("propMaterial");
+        
+        const contactMat = new CANNON.ContactMaterial(playerPhysMat, groundPhysMat, { friction: 0.1, restitution: 0.0 });
+        const playerPropContactMat = new CANNON.ContactMaterial(playerPhysMat, propPhysMat, { friction: 0.3, restitution: 0.1 });
         world.addContactMaterial(contactMat);
+        world.addContactMaterial(playerPropContactMat);
         groundBody.material = groundPhysMat;
 
         const playerRadius = 0.6, playerHeight = 1.8;
@@ -251,6 +260,17 @@
         const playerBody = new CANNON.Body({ mass: 70, shape: playerShape, fixedRotation: true, material: playerPhysMat });
         playerBody.position.set(0, 3, 5);
         world.addBody(playerBody);
+
+        // Local player mesh for 3rd person visibility
+        const localVisualGroup = new THREE.Group();
+        const localBodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: 0xff3333 }));
+        localBodyMesh.position.y = 0.6; localVisualGroup.add(localBodyMesh);
+        const localHeadMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+        localHeadMesh.position.y = 1.35; localVisualGroup.add(localHeadMesh);
+        const localVisorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+        localVisorMesh.position.set(0, 1.35, 0.25); localVisualGroup.add(localVisorMesh);
+        scene.add(localVisualGroup);
+        localVisualGroup.visible = false;
 
         const beamMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 3 });
         const beamGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
@@ -262,6 +282,7 @@
         const menu = document.getElementById('spawn-menu');
 
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
+        let flyUp = false, flyDown = false;
         const inputDirection = new THREE.Vector3();
 
         const raycaster = new THREE.Raycaster();
@@ -269,6 +290,10 @@
         let grabDistance = 0;
         let grabIsPlayer = false;
         
+        // New features state
+        let isThirdPerson = false;
+        let isFlying = false;
+
         // GMOD Swing-Throw Mechanics variables
         let lastGrabbedPos = new CANNON.Vec3();
         let grabbedVelocity = new CANNON.Vec3();
@@ -290,6 +315,7 @@
             roomId = document.getElementById('room-input').value.trim() || "global";
             playerId = Math.random().toString(36).substring(2, 9);
 
+            localBodyMesh.material.color.setHex(avatarColor);
             localStorage.setItem('bm_saved_username', username);
 
             roomRef = ref(db, `rooms/${roomId}`);
@@ -410,6 +436,9 @@
                     }
 
                     networkPlayers[id].position.set(data[id].x, data[id].y - 0.9, data[id].z);
+                    if(data[id].rotationY !== undefined) {
+                        networkPlayers[id].rotation.y = data[id].rotationY;
+                    }
                 });
             });
 
@@ -425,7 +454,7 @@
                 const id = snapshot.key;
                 const data = snapshot.val();
                 if (props[id]) return;
-                createLocalProp(id, data.type, data.x, data.y, data.z);
+                createLocalProp(id, data.type, data.x, data.y, data.z, data.frozen);
             });
 
             onChildRemoved(propsRef, (snapshot) => {
@@ -434,6 +463,25 @@
                     scene.remove(props[id].mesh);
                     world.removeBody(props[id].body);
                     delete props[id];
+                }
+            });
+
+            // Handle runtime prop updates (like frozen toggles or dynamic position changes)
+            propsRef.on('child_changed', (snapshot) => {
+                const id = snapshot.key;
+                const data = snapshot.val();
+                if (props[id]) {
+                    if (data.frozen) {
+                        props[id].body.mass = 0;
+                        props[id].body.type = CANNON.Body.STATIC;
+                    } else {
+                        props[id].body.mass = 8;
+                        props[id].body.type = CANNON.Body.DYNAMIC;
+                    }
+                    props[id].body.updateMassProperties();
+                    if (grabbedObj !== props[id]) {
+                        props[id].body.position.set(data.x, data.y, data.z);
+                    }
                 }
             });
         }
@@ -454,11 +502,49 @@
             if (e.code === 'KeyS') moveBackward = true;
             if (e.code === 'KeyA') moveLeft = true;
             if (e.code === 'KeyD') moveRight = true;
-            if (e.code === 'Space' && canJump) {
-                playerBody.velocity.y = 8.5; 
-                canJump = false;
+            if (e.code === 'Space') {
+                if (isFlying) flyUp = true;
+                else if (canJump) { playerBody.velocity.y = 8.5; canJump = false; }
             }
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { if (isFlying) flyDown = true; }
             if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
+            
+            // Toggles & Actions
+            if (e.code === 'KeyJ') {
+                isThirdPerson = !isThirdPerson;
+                localVisualGroup.visible = isThirdPerson;
+            }
+            if (e.code === 'KeyG') {
+                isFlying = !isFlying;
+                if (isFlying) {
+                    playerBody.useGravity = false;
+                    playerBody.velocity.set(0, 0, 0);
+                } else {
+                    playerBody.useGravity = true;
+                }
+            }
+            if (e.code === 'KeyF') {
+                if (grabbedObj && !grabIsPlayer) {
+                    remove(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`));
+                    grabbedObj = null;
+                    beamLine.visible = false;
+                }
+            }
+            if (e.code === 'KeyZ') {
+                raycaster.setFromCamera(new THREE.Vector2(), camera);
+                const propMeshes = [];
+                Object.values(props).forEach(p => { p.mesh.userData.rootProp = p; propMeshes.push(p.mesh); });
+                const intersects = raycaster.intersectObjects(propMeshes, true);
+                if (intersects.length > 0) {
+                    let hitObj = intersects[0].object;
+                    while (hitObj.parent && !hitObj.userData.rootProp) { hitObj = hitObj.parent; }
+                    const root = hitObj.userData.rootProp;
+                    if (root) {
+                        const nextFrozenState = root.body.mass !== 0;
+                        update(ref(db, `rooms/${roomId}/props/${root.id}`), { frozen: nextFrozenState });
+                    }
+                }
+            }
         });
 
         document.addEventListener('keyup', (e) => {
@@ -466,11 +552,13 @@
             if (e.code === 'KeyS') moveBackward = false;
             if (e.code === 'KeyA') moveLeft = false;
             if (e.code === 'KeyD') moveRight = false;
+            if (e.code === 'Space') flyUp = false;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') flyDown = false;
             if (e.code === 'KeyQ') { menu.style.display = 'none'; controls.lock(); }
         });
 
         // --- OBJ FACTORY ---
-        function createLocalProp(id, type, x, y, z) {
+        function createLocalProp(id, type, x, y, z, isFrozen) {
             let mesh, shape;
             let size = 1.2;
 
@@ -493,7 +581,12 @@
 
             scene.add(mesh);
 
-            const body = new CANNON.Body({ mass: 8, shape: shape });
+            const body = new CANNON.Body({ 
+                mass: isFrozen ? 0 : 8, 
+                shape: shape, 
+                material: propPhysMat,
+                type: isFrozen ? CANNON.Body.STATIC : CANNON.Body.DYNAMIC 
+            });
             body.position.set(x, y, z);
             world.addBody(body);
 
@@ -507,20 +600,17 @@
                 const targetPos = new THREE.Vector3();
                 camera.getWorldDirection(targetPos).multiplyScalar(4).add(camera.position);
 
-                const newPropRef = ref(db, `rooms/${roomId}/props/${Math.random().toString(36).substring(2, 9)}`);
-                set(newPropRef, { type: currentPropType, x: targetPos.x, y: targetPos.y, z: targetPos.z });
+                const newId = Math.random().toString(36).substring(2, 9);
+                set(ref(db, `rooms/${roomId}/props/${newId}`), { 
+                    type: currentPropType, x: targetPos.x, y: targetPos.y, z: targetPos.z, frozen: false 
+                });
             }
             if (e.button === 2) { 
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
                 const propMeshes = [];
                 Object.values(props).forEach(p => {
-                    if(p.mesh.isGroup) {
-                        p.mesh.traverse(child => { if(child.isMesh) child.userData.rootProp = p; });
-                        propMeshes.push(...p.mesh.children);
-                    } else {
-                        p.mesh.userData.rootProp = p;
-                        propMeshes.push(p.mesh);
-                    }
+                    p.mesh.userData.rootProp = p;
+                    propMeshes.push(p.mesh);
                 });
                 
                 const playerMeshes = Object.values(networkPlayers);
@@ -531,20 +621,20 @@
                     let hitObject = intersects[0].object;
                     grabDistance = intersects[0].distance;
 
+                    while (hitObject.parent && !hitObject.userData.rootProp && !playerMeshes.includes(hitObject)) {
+                        hitObject = hitObject.parent;
+                    }
+
                     if (hitObject.userData.rootProp) {
                         grabbedObj = hitObject.userData.rootProp;
                         grabbedObj.body.mass = 0;
+                        grabbedObj.body.type = CANNON.Body.DYNAMIC;
                         grabbedObj.body.updateMassProperties();
                         grabIsPlayer = false;
                         lastGrabbedPos.copy(grabbedObj.body.position);
-                    } else {
-                        while (hitObject.parent && !playerMeshes.includes(hitObject)) {
-                            hitObject = hitObject.parent;
-                        }
-                        if(playerMeshes.includes(hitObject)) {
-                            grabbedObj = hitObject;
-                            grabIsPlayer = true;
-                        }
+                    } else if (playerMeshes.includes(hitObject)) {
+                        grabbedObj = hitObject;
+                        grabIsPlayer = true;
                     }
                 }
             }
@@ -555,8 +645,15 @@
                 if (!grabIsPlayer) {
                     grabbedObj.body.mass = 8;
                     grabbedObj.body.updateMassProperties();
-                    // Apply calculated swing-throwing velocity scaled up for optimal force
                     grabbedObj.body.velocity.copy(grabbedVelocity).scale(1.8);
+                    
+                    // Sync unfreeze on throw
+                    update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
+                        frozen: false,
+                        x: grabbedObj.body.position.x,
+                        y: grabbedObj.body.position.y,
+                        z: grabbedObj.body.position.z
+                    });
                 }
                 grabbedObj = null;
                 beamLine.visible = false;
@@ -570,9 +667,50 @@
             const delta = Math.min(clock.getDelta(), 0.1);
 
             if (gameActive) {
-                world.fixedStep();
-                camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
+                if (!isFlying) {
+                    world.fixedStep();
+                } else {
+                    // Manual position integration when flying
+                    const flySpeed = 12;
+                    let flyVec = new THREE.Vector3();
+                    if (moveForward) flyVec.z += 1;
+                    if (moveBackward) flyVec.z -= 1;
+                    if (moveLeft) flyVec.x += 1;
+                    if (moveRight) flyVec.x -= 1;
+                    flyVec.normalize();
 
+                    const camTarget = new THREE.Vector3();
+                    camera.getWorldDirection(camTarget);
+                    const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize();
+
+                    let moveDir = new THREE.Vector3();
+                    moveDir.addScaledVector(camTarget, flyVec.z);
+                    moveDir.addScaledVector(camRight, flyVec.x);
+                    if (flyUp) moveDir.y += 1;
+                    if (flyDown) moveDir.y -= 1;
+
+                    playerBody.position.x += moveDir.x * flySpeed * delta;
+                    playerBody.position.y += moveDir.y * flySpeed * delta;
+                    playerBody.position.z += moveDir.z * flySpeed * delta;
+                    playerBody.velocity.set(0, 0, 0);
+                }
+
+                // Handle Camera & Local Mesh Orientation
+                localVisualGroup.position.copy(playerBody.position);
+                const camDir = new THREE.Vector3();
+                camera.getWorldDirection(camDir);
+                localVisualGroup.rotation.y = Math.atan2(-camDir.x, -camDir.z);
+
+                if (isThirdPerson) {
+                    const backCamPos = new THREE.Vector3();
+                    backCamPos.copy(playerBody.position).add(new THREE.Vector3(0, 0.5, 0));
+                    backCamPos.addScaledVector(camDir, -4); // Offset behind player
+                    camera.position.copy(backCamPos);
+                } else {
+                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
+                }
+
+                // Ground raycast check
                 const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.91, playerBody.position.z);
                 const to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 1.05, playerBody.position.z);
                 const rayResult = new CANNON.RaycastResult();
@@ -591,7 +729,6 @@
                     if (!grabIsPlayer) {
                         grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z);
                         
-                        // Calculate frame-by-frame change in position over delta time to compute precise velocity vectors
                         if (delta > 0) {
                             grabbedVelocity.set(
                                 (grabbedObj.body.position.x - lastGrabbedPos.x) / delta,
@@ -603,7 +740,7 @@
                         lastGrabbedPos.copy(grabbedObj.body.position);
 
                         set(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
-                            type: grabbedObj.type, x: targetPos.x, y: targetPos.y, z: targetPos.z
+                            type: grabbedObj.type, x: targetPos.x, y: targetPos.y, z: targetPos.z, frozen: false
                         });
                     } else {
                         const netId = grabbedObj.userData.networkId;
@@ -619,7 +756,7 @@
                     beamLine.visible = true;
                 }
 
-                if (controls.isLocked) {
+                if (controls.isLocked && !isFlying) {
                     inputDirection.z = Number(moveForward) - Number(moveBackward);
                     inputDirection.x = Number(moveLeft) - Number(moveRight);
                     inputDirection.normalize();
@@ -637,14 +774,17 @@
 
                     playerBody.velocity.x = moveVector.x;
                     playerBody.velocity.z = moveVector.z;
+                }
 
+                if (controls.isLocked) {
                     set(playerRef, { 
                         name: username, 
                         color: avatarColor, 
                         isAdminStatus: isAdmin,
-                        x: camera.position.x, 
-                        y: camera.position.y, 
-                        z: camera.position.z 
+                        x: playerBody.position.x, 
+                        y: playerBody.position.y + 0.5, 
+                        z: playerBody.position.z,
+                        rotationY: localVisualGroup.rotation.y
                     });
                 }
             }
