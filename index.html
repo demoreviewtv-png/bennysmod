@@ -452,9 +452,16 @@
             document.getElementById('error-text').innerText = `[${e.message} In: ${e.filename} (Line ${e.lineno})]`;
         });
 
-        // App Configurations
+        // App Configurations using your project variables
         const firebaseConfig = {
-            databaseURL: "https://bennysmod-default-rtdb.firebaseio.com"
+            apiKey: "AIzaSyBmHx2iZL0UFgr_d0y0-ENIQQ6EF82XuIs",
+            authDomain: "bennysmod.firebaseapp.com",
+            databaseURL: "https://bennysmod-default-rtdb.firebaseio.com",
+            projectId: "bennysmod",
+            storageBucket: "bennysmod.firebasestorage.app",
+            messagingSenderId: "739121709314",
+            appId: "1:739121709314:web:69323c2e9ebaab911c821b",
+            measurementId: "G-TB8EBLGN6X"
         };
 
         const app = initializeApp(firebaseConfig);
