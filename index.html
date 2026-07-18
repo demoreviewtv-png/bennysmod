@@ -544,10 +544,7 @@
             if (e.code === 'KeyG') {
                 isFlying = !isFlying;
                 if (isFlying) {
-                    playerBody.useGravity = false;
                     playerBody.velocity.set(0, 0, 0);
-                } else {
-                    playerBody.useGravity = true;
                 }
             }
             if (e.code === 'KeyF') {
@@ -693,15 +690,16 @@
             const delta = Math.min(clock.getDelta(), 0.1);
 
             if (gameActive) {
-                if (!isFlying) {
-                    world.fixedStep();
-                } else {
-                    const flySpeed = 18; // Increased flying speed
+                // Keep physics world simulated unconditionally so environment and objects still drop under gravity
+                world.fixedStep();
+
+                if (isFlying) {
+                    const flySpeed = 18; 
                     let flyVec = new THREE.Vector3();
                     if (moveForward) flyVec.z += 1;
                     if (moveBackward) flyVec.z -= 1;
-                    if (moveLeft) flyVec.x += 1;
-                    if (moveRight) flyVec.x -= 1;
+                    if (moveLeft) flyVec.x -= 1; // Fixed left flight strafing
+                    if (moveRight) flyVec.x += 1; // Fixed right flight strafing
                     flyVec.normalize();
 
                     const camTarget = new THREE.Vector3();
@@ -717,7 +715,10 @@
                     playerBody.position.x += moveDir.x * flySpeed * delta;
                     playerBody.position.y += moveDir.y * flySpeed * delta;
                     playerBody.position.z += moveDir.z * flySpeed * delta;
+                    
+                    // Constantly override player physical velocities/forces so gravity won't drag down the player while flying
                     playerBody.velocity.set(0, 0, 0);
+                    playerBody.force.set(0, 0, 0);
                 }
 
                 localVisualGroup.position.copy(playerBody.position);
@@ -782,10 +783,10 @@
 
                 // Handle WASD movement vectors relative to camera looking angle
                 if (controls.isLocked && !isFlying) {
-                    const speedMultiplier = 14.0; // Optimized fast walking/running speed setting
+                    const speedMultiplier = 14.0; 
                     
                     let inputZ = Number(moveForward) - Number(moveBackward);
-                    let inputX = Number(moveLeft) - Number(moveRight);
+                    let inputX = Number(moveRight) - Number(moveLeft); // Fixed left/right walking strafing orientation
 
                     const camTarget = new THREE.Vector3();
                     camera.getWorldDirection(camTarget);
@@ -798,7 +799,7 @@
                     const moveVector = new THREE.Vector3();
                     moveVector.addScaledVector(camTarget, inputZ);
                     moveVector.addScaledVector(camRight, inputX);
-                    moveVector.normalize(); // Ensure diagonal movement isn't unintentionally faster
+                    moveVector.normalize(); 
 
                     playerBody.velocity.x = moveVector.x * speedMultiplier;
                     playerBody.velocity.z = moveVector.z * speedMultiplier;
