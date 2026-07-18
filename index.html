@@ -35,6 +35,7 @@
             padding: 10px; border-radius: 6px; border: none; font-size: 15px;
         }
         .menu-box input, .menu-box select { background: #222; color: white; border: 1px solid #555; }
+        .menu-box input[type="color"] { padding: 2px; height: 40px; cursor: pointer; width: 100%; box-sizing: border-box; }
         .menu-box button { background: #21a03c; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .menu-box button:hover { background: #2cbd4b; }
 
@@ -128,8 +129,6 @@
 </head>
 <body>
 
-    <audio id="bg-music" loop></audio>
-
     <div id="error-screen">
         <div class="error-box">
             <h2 style="color: #ff4444; margin-top: 0;">Game Error Encountered</h2>
@@ -142,16 +141,11 @@
         <h2>Benny's Mod Sandbox</h2>
         <div class="menu-container">
             <div class="menu-box">
-                <label>Username (Max 10 chars)</label>
-                <input type="text" id="username-input" maxlength="10">
+                <label>Username</label>
+                <input type="text" id="username-input">
                 
-                <label>Avatar Model Variant</label>
-                <select id="avatar-input">
-                    <option value="0xff3333">Red Android</option>
-                    <option value="0x33ff33">Green Cyber-Suit</option>
-                    <option value="0x3333ff">Blue Guardian</option>
-                    <option value="0xe0a800">Gold Mech</option>
-                </select>
+                <label>Custom Avatar Color Picker</label>
+                <input type="color" id="avatar-input" value="#ff3333">
 
                 <label>Private Server Room ID</label>
                 <input type="text" id="room-input" value="sandbox-1">
@@ -224,17 +218,6 @@
         <div id="admin-panel" class="menu-section">
             <h4>Admin Utility Options</h4>
             <button class="admin-btn" id="clear-room-btn">CLEAR ALL PROPS</button>
-            
-            <div style="margin-top: 12px; border-top: 1px dashed #555; padding-top: 10px;">
-                <label style="font-size: 13px; color: #ccc; font-weight: bold;">Room Background Music</label>
-                <select id="admin-music-select" style="width: 100%; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-top: 4px;">
-                    <option value="">None / Mute</option>
-                    <option value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">Preset: Ambient Synth 1</option>
-                    <option value="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3">Preset: Ambient Synth 2</option>
-                    <option value="custom">Upload Custom Music Track...</option>
-                </select>
-                <input type="file" id="admin-music-upload" accept="audio/*" style="margin-top: 6px; font-size: 11px; color: #ccc; display: none; width: 100%;">
-            </div>
         </div>
     </div>
 
@@ -248,8 +231,7 @@
         • Press <strong>G</strong>: Toggle Fly Mode (Space=Up, Shift=Down)<br>
         • Press <strong>F</strong>: Delete Held Object<br>
         • Press <strong>Z</strong>: Toggle Physics Freeze on pointed object<br>
-        • <strong>AFK Mode:</strong> Idle players turn into physics ragdoll props after 15s!<br>
-        • <strong>Auto-Clean:</strong> When a room hits 0 active players, it automatically self-deletes!
+        • <strong>AFK Mode:</strong> Idle players turn into physics ragdoll props after 15s!
     </div>
 
     <script>
@@ -271,7 +253,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, onChildAdded, onChildRemoved, onChildChanged, remove, onDisconnect, update, get } 
+        import { getDatabase, ref, set, onValue, onChildAdded, onChildRemoved, onChildChanged, remove, onDisconnect, update } 
         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
         import * as THREE from 'three';
@@ -294,7 +276,7 @@
         const db = getDatabase(app);
 
         let roomId, playerId, username, avatarColor;
-        let playerRef, propsRef, envRef, adminRef, roomRef, playersListRef;
+        let playerRef, propsRef, envRef, adminRef, roomRef;
         let gameActive = false, isAdmin = false;
         
         // AFK Variables
@@ -302,9 +284,7 @@
         let isLocalAfk = false;
 
         const savedUsername = localStorage.getItem('bm_saved_username');
-        // Slice the loaded string down if it happens to be longer than 10 characters
-        const defaultUser = savedUsername ? savedUsername.substring(0, 10) : "Builder_" + Math.floor(100 + Math.random() * 900);
-        document.getElementById('username-input').value = defaultUser.substring(0, 10);
+        document.getElementById('username-input').value = savedUsername || "Builder_" + Math.floor(100 + Math.random() * 900);
 
         // --- ROOM LIST LISTENER ---
         onValue(ref(db, 'rooms'), (snapshot) => {
@@ -319,8 +299,6 @@
                 const pCount = roomsData[rId].players ? Object.keys(roomsData[rId].players).length : 0;
                 const propCount = roomsData[rId].props ? Object.keys(roomsData[rId].props).length : 0;
                 
-                if (pCount === 0) return;
-
                 const item = document.createElement('div');
                 item.className = 'server-item';
                 item.innerHTML = `<span>📂 <b>${rId}</b></span> <span>👥 ${pCount} | 📦 ${propCount}</span>`;
@@ -375,13 +353,22 @@
         playerBody.position.set(Math.random() * 6 - 3, 3, Math.random() * 6 - 3);
         world.addBody(playerBody);
 
+        // --- LOCAL VISUAL AVATAR SET UP ---
         const localVisualGroup = new THREE.Group();
         const localBodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: 0xff3333 }));
         localBodyMesh.position.y = 0.6; localVisualGroup.add(localBodyMesh);
+        
+        // Dynamic Head Sub-Group Assembly
+        const localHeadGroup = new THREE.Group();
+        localHeadGroup.position.y = 1.35;
+        
         const localHeadMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-        localHeadMesh.position.y = 1.35; localVisualGroup.add(localHeadMesh);
+        localHeadGroup.add(localHeadMesh);
         const localVisorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
-        localVisorMesh.position.set(0, 1.35, 0.25); localVisualGroup.add(localVisorMesh);
+        localVisorMesh.position.set(0, 0, 0.25); 
+        localHeadGroup.add(localVisorMesh);
+        
+        localVisualGroup.add(localHeadGroup);
         scene.add(localVisualGroup);
         localVisualGroup.visible = false;
 
@@ -412,7 +399,7 @@
         const networkPlayers = {};
 
         let currentPropType = 'cube';
-        let currentToolMode = 'spawn';
+        let currentToolMode = 'spawn'; // Options: spawn, color, remover, ignite
 
         window.selectProp = function(type, element) {
             currentPropType = type;
@@ -434,11 +421,12 @@
 
         // --- START GAME ---
         document.getElementById('start-btn').addEventListener('click', () => {
-            let userRaw = document.getElementById('username-input').value.trim() || "Player";
-            // String clipping enforcement layer to secure name limits to exactly 10 characters
-            username = userRaw.substring(0, 10);
+            username = document.getElementById('username-input').value.trim() || "Player";
             
-            avatarColor = parseInt(document.getElementById('avatar-input').value);
+            // Read value from native custom color picker
+            const pickerColor = document.getElementById('avatar-input').value;
+            avatarColor = parseInt(pickerColor.replace("#", "0x"));
+
             roomId = document.getElementById('room-input').value.trim() || "global";
             playerId = Math.random().toString(36).substring(2, 9);
 
@@ -446,7 +434,6 @@
             localStorage.setItem('bm_saved_username', username);
 
             roomRef = ref(db, `rooms/${roomId}`);
-            playersListRef = ref(db, `rooms/${roomId}/players`);
             playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
             propsRef = ref(db, `rooms/${roomId}/props`);
             envRef = ref(db, `rooms/${roomId}/environment`);
@@ -454,7 +441,7 @@
 
             onDisconnect(playerRef).remove();
             
-            onValue(playersListRef, (snap) => {
+            onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
                 if (gameActive && snap.exists()) {
                     if (!Object.keys(snap.val()).includes(playerId)) location.reload();
                 }
@@ -471,8 +458,6 @@
             controls.lock();
             gameActive = true;
             resetInputTimer();
-            
-            document.getElementById('bg-music').play().catch(() => {});
         });
 
         function resetInputTimer() {
@@ -495,16 +480,7 @@
                 }
             });
 
-            onChildRemoved(playersListRef, () => {
-                get(playersListRef).then((snapshot) => {
-                    if (!snapshot.exists() || Object.keys(snapshot.val()).length === 0) {
-                        console.log("Room has 0 players left. Clearing room directory...");
-                        remove(roomRef);
-                    }
-                });
-            });
-
-            onValue(playersListRef, (snapshot) => {
+            onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
                 const data = snapshot.val() || {};
                 const listPanel = document.getElementById('player-list-content');
                 listPanel.innerHTML = ""; 
@@ -534,14 +510,22 @@
                     `;
                     listPanel.appendChild(pRow);
 
+                    // Create or track remote player physics prop structure
                     if (!networkPlayers[id]) {
                         const group = new THREE.Group();
                         const bMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: pData.color || 0xff0000 }));
                         bMesh.position.y = 0.6; group.add(bMesh);
+                        
+                        // Assemble Remote Rotating Head System structure
+                        const rHeadGroup = new THREE.Group();
+                        rHeadGroup.position.y = 1.35;
+                        
                         const hMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
-                        hMesh.position.y = 1.35; group.add(hMesh);
+                        rHeadGroup.add(hMesh);
                         const vMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
-                        vMesh.position.set(0, 1.35, 0.25); group.add(vMesh);
+                        vMesh.position.set(0, 0, 0.25); rHeadGroup.add(vMesh);
+                        
+                        group.add(rHeadGroup);
 
                         const nameDiv = document.createElement('div');
                         nameDiv.className = 'username-tag';
@@ -553,12 +537,13 @@
                         const pBody = new CANNON.Body({ mass: 0, shape: new CANNON.Cylinder(0.6, 0.6, 1.8, 8) });
                         world.addBody(pBody);
 
-                        networkPlayers[id] = { mesh: group, body: pBody, baseColor: pData.color };
+                        networkPlayers[id] = { mesh: group, headGroup: rHeadGroup, body: pBody, baseColor: pData.color };
                         group.userData.remotePlayerId = id;
                     }
 
                     const netObj = networkPlayers[id];
 
+                    // If player is AFK, they undergo dynamic physics updates controlled by room interactions
                     if (pData.afk) {
                         netObj.body.type = CANNON.Body.DYNAMIC;
                         netObj.body.mass = 50;
@@ -570,6 +555,7 @@
                             netObj.mesh.quaternion.copy(netObj.body.quaternion);
                         }
                     } else {
+                        // Regular client sync tracking when active
                         netObj.body.type = CANNON.Body.STATIC;
                         netObj.body.mass = 0;
                         netObj.body.updateMassProperties();
@@ -577,6 +563,11 @@
                         netObj.body.position.set(pData.x, pData.y - 0.5, pData.z);
                         netObj.mesh.position.set(pData.x, pData.y - 0.9, pData.z);
                         if (pData.rotationY !== undefined) netObj.mesh.rotation.y = pData.rotationY;
+                        
+                        // Apply remote synchronized pitch angle tracking to the player's head group
+                        if (pData.rotationX !== undefined && netObj.headGroup) {
+                            netObj.headGroup.rotation.x = pData.rotationX;
+                        }
                     }
                 });
             });
@@ -586,17 +577,6 @@
                 if (env) {
                     if (env.skybox) scene.background.setHex(parseInt(env.skybox));
                     if (env.ground) groundMat.color.setHex(parseInt(env.ground));
-                    
-                    const audioEl = document.getElementById('bg-music');
-                    if (env.musicUrl) {
-                        if (audioEl.src !== env.musicUrl) {
-                            audioEl.src = env.musicUrl;
-                            audioEl.play().catch(() => {});
-                        }
-                    } else {
-                        audioEl.pause();
-                        audioEl.src = "";
-                    }
                 }
             });
 
@@ -641,34 +621,6 @@
         });
         document.getElementById('clear-room-btn').addEventListener('click', () => {
             if (isAdmin) remove(propsRef);
-        });
-
-        // Admin Background Music Selectors
-        document.getElementById('admin-music-select').addEventListener('change', (e) => {
-            if (!isAdmin) return;
-            const val = e.target.value;
-            const uploadInput = document.getElementById('admin-music-upload');
-            if (val === 'custom') {
-                uploadInput.style.display = 'block';
-            } else {
-                uploadInput.style.display = 'none';
-                set(ref(db, `rooms/${roomId}/environment/musicUrl`), val);
-            }
-        });
-
-        document.getElementById('admin-music-upload').addEventListener('change', (e) => {
-            if (!isAdmin) return;
-            const file = e.target.files[0];
-            if (!file) return;
-            if (file.size > 2.5 * 1024 * 1024) {
-                alert("Audio file too large! Please select an audio loop under 2.5MB to stream across real-time servers.");
-                return;
-            }
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                set(ref(db, `rooms/${roomId}/environment/musicUrl`), evt.target.result);
-            };
-            reader.readAsDataURL(file);
         });
 
         // --- INPUT EVENT HANDLING ---
@@ -759,6 +711,7 @@
             if (!controls.isLocked || !gameActive) return;
             resetInputTimer();
 
+            // Left Click (Use Selected Tool System)
             if (e.button === 0) {
                 const targetPos = new THREE.Vector3();
                 camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
@@ -769,6 +722,7 @@
                         type: currentPropType, x: targetPos.x, y: targetPos.y, z: targetPos.z, frozen: false, color: Math.floor(Math.random()*16777215)
                     });
                 } else {
+                    // Tool hit logic
                     raycaster.setFromCamera(new THREE.Vector2(), camera);
                     const propMeshes = Object.values(props).map(p => p.mesh);
                     const playerMeshes = Object.values(networkPlayers).map(p => p.mesh);
@@ -793,6 +747,7 @@
                 }
             }
 
+            // Right Click (Physgun Grab Handling both Props and AFK physics-activated Players)
             if (e.button === 2) { 
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
                 const propMeshes = Object.values(props).map(p => p.mesh);
@@ -829,7 +784,7 @@
                 if (!grabIsPlayerId) {
                     grabbedObj.body.mass = 8;
                     grabbedObj.body.updateMassProperties();
-                    grabbedObj.body.velocity.copy(grabbedVelocity).scale(2.2);
+                    grabbedObj.body.velocity.copy(grabbedVelocity).scale(2.2); // Fling scaling force
                     
                     update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
                         frozen: false, x: grabbedObj.body.position.x, y: grabbedObj.body.position.y, z: grabbedObj.body.position.z
@@ -851,17 +806,13 @@
             const delta = Math.min(clock.getDelta(), 0.1);
 
             if (gameActive) {
+                // AFK engine processing verification
                 afkTimerCheck += delta;
                 if(afkTimerCheck > 1.0) {
                     afkTimerCheck = 0;
-                    
                     if (Date.now() - lastInputTime > 15000 && !isLocalAfk) {
                         isLocalAfk = true;
                         update(playerRef, { afk: true });
-                    }
-                    
-                    if (Date.now() - lastInputTime > 60000) {
-                        remove(roomRef);
                     }
                 }
 
@@ -881,15 +832,20 @@
                     moveDir.addScaledVector(camRight, flyVec.x);
                     if (flyUp) moveDir.y += 1; if (flyDown) moveDir.y -= 1;
 
-                    playerBody.position.x += moveDir.x * 24 * delta;
-                    playerBody.position.y += moveDir.y * 24 * delta;
-                    playerBody.position.z += moveDir.z * 24 * delta;
+                    playerBody.position.x += moveDir.x * 22 * delta;
+                    playerBody.position.y += moveDir.y * 22 * delta;
+                    playerBody.position.z += moveDir.z * 22 * delta;
                     playerBody.velocity.set(0, 0, 0);
                 }
 
+                // Update visual group mapping orientation
                 localVisualGroup.position.copy(playerBody.position);
                 const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir);
                 localVisualGroup.rotation.y = Math.atan2(-camDir.x, -camDir.z);
+
+                // Local Head Pitch tracking system based on looking up and down
+                const headPitch = Math.asin(camDir.y);
+                localHeadGroup.rotation.x = headPitch;
 
                 if (isThirdPerson) {
                     const backCamPos = new THREE.Vector3().copy(playerBody.position).add(new THREE.Vector3(0, 0.6, 0));
@@ -899,6 +855,7 @@
                     camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
                 }
 
+                // Raycast grounding jump verification
                 const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
                 const to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.99, playerBody.position.z);
                 const rayResult = new CANNON.RaycastResult();
@@ -910,6 +867,7 @@
                     props[id].mesh.quaternion.copy(props[id].body.quaternion);
                 });
 
+                // Physgun execution processing
                 if (grabbedObj) {
                     const targetPos = new THREE.Vector3();
                     camera.getWorldDirection(targetPos).multiplyScalar(grabDistance).add(camera.position);
@@ -930,6 +888,7 @@
                             type: grabbedObj.type, x: targetPos.x, y: targetPos.y, z: targetPos.z, frozen: false
                         });
                     } else {
+                        // Push grabbed AFK positions directly to network coordinates 
                         set(ref(db, `rooms/${roomId}/players/${grabIsPlayerId}/x`), targetPos.x);
                         set(ref(db, `rooms/${roomId}/players/${grabIsPlayerId}/y`), targetPos.y + 0.5);
                         set(ref(db, `rooms/${roomId}/players/${grabIsPlayerId}/z`), targetPos.z);
@@ -942,24 +901,26 @@
                     beamLine.visible = true;
                 }
 
+                // Handle basic movement values 
                 if (controls.isLocked && !isFlying) {
                     let inputZ = Number(moveForward) - Number(moveBackward);
-                    let inputX = Number(moveRight) - Number(moveLeft);
+                    let inputX = Number(moveLeft) - Number(moveRight);
 
                     const camTarget = new THREE.Vector3(); camera.getWorldDirection(camTarget);
                     camTarget.y = 0; camTarget.normalize();
                     const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize();
 
                     const moveVector = new THREE.Vector3().addScaledVector(camTarget, inputZ).addScaledVector(camRight, inputX).normalize();
-                    playerBody.velocity.x = moveVector.x * 24.0; 
-                    playerBody.velocity.z = moveVector.z * 24.0; 
+                    playerBody.velocity.x = moveVector.x * 14.0;
+                    playerBody.velocity.z = moveVector.z * 14.0;
                 }
 
                 if (controls.isLocked) {
                     set(playerRef, { 
                         name: username, color: avatarColor, isAdminStatus: isAdmin, afk: isLocalAfk,
                         x: playerBody.position.x, y: playerBody.position.y + 0.5, z: playerBody.position.z,
-                        rotationY: localVisualGroup.rotation.y
+                        rotationY: localVisualGroup.rotation.y,
+                        rotationX: headPitch // Synchronize head vertical pitch angle data globally via network database
                     });
                 }
             }
