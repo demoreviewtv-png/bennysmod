@@ -311,7 +311,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        let roomId, playerId, username, avatarColor;
+        let roomId, playerId, username, avatarColor, isLocalAdmin = false;
         let playerRef, propsRef, roomRef, envRef, adminRef;
         let gameActive = false, isConfiguring = false, isThirdPerson = false;
         let isMobileModeActive = false;
@@ -344,15 +344,15 @@
             else if (toggleChoice === 'desktop') isMobileModeActive = false;
             else isMobileModeActive = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-            let isAdmin = username.toLowerCase() === "benny" || username.toLowerCase() === "admin";
-            if(isAdmin) document.getElementById('admin-panel').style.display = 'block';
+            isLocalAdmin = username.toLowerCase() === "benny" || username.toLowerCase() === "admin";
+            if(isLocalAdmin) document.getElementById('admin-panel').style.display = 'block';
 
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('crosshair').style.display = 'block';
             document.getElementById('instructions').style.display = 'block';
             document.getElementById('player-list-panel').style.display = 'block';
             
-            initGame(isAdmin);
+            initGame(isLocalAdmin);
         });
 
         document.getElementById('clear-room-btn').addEventListener('click', () => {
@@ -363,7 +363,8 @@
 
         // Track live servers for the starting menu
         onValue(ref(db, "rooms"), (snapshot) => {
-            const container = document.getElementById('server-list-container');
+            const container = document.getElementById('server-list-content');
+            if (!container) return;
             container.innerHTML = "";
             if (!snapshot.exists()) {
                 container.innerHTML = `<div class="no-servers">No active instances.<br>Launch a room target to create!</div>`;
@@ -554,10 +555,13 @@
 
         function rebuildScoreboard() {
             const content = document.getElementById('player-list-content');
+            if (!content) return;
             content.innerHTML = `<div class="player-list-item"><div class="player-info"><div class="status-dot"></div><span>${username} (You)</span></div></div>`;
             for (let k in networkPlayers) {
-                const tag = networkPlayers[k].root.children[2].element.innerText.replace("ADMIN", "");
-                content.innerHTML += `<div class="player-list-item"><div class="player-info"><div class="status-dot"></div><span>${tag}</span></div></div>`;
+                if (networkPlayers[k].root && networkPlayers[k].root.children[2]) {
+                    const tag = networkPlayers[k].root.children[2].element.innerText.replace("ADMIN", "");
+                    content.innerHTML += `<div class="player-list-item"><div class="player-info"><div class="status-dot"></div><span>${tag}</span></div></div>`;
+                }
             }
         }
 
@@ -582,13 +586,13 @@
                     }
                     if (key === 'j') isThirdPerson = !isThirdPerson;
                     
-                    // Add "E" to immediately delete held item
+                    // "E" deletes held item immediately
                     if (key === 'e' && grabbedId) {
                         remove(ref(db, `rooms/${roomId}/props/${grabbedId}`));
                         releaseGrabbedProp();
                     }
 
-                    // Open Context menu on 'R' while holding object
+                    // Quick Context menu on 'R' while holding object
                     if (key === 'r' && grabbedId && gameActive) {
                         isConfiguring = true;
                         document.getElementById('spawn-menu').style.display = 'none';
@@ -673,7 +677,6 @@
                 document.getElementById('mobile-fire-btn').addEventListener('touchstart', (e) => { 
                     e.preventDefault(); 
                     if(grabbedId) {
-                        // On mobile, let's use the Fire button to delete while holding
                         remove(ref(db, `rooms/${roomId}/props/${grabbedId}`));
                         releaseGrabbedProp();
                         grabBtn.style.background = "rgba(42, 103, 188, 0.65)";
@@ -690,7 +693,7 @@
                 });
             }
 
-            // UI Context Logic config binds
+            // UI Context Binds
             document.getElementById('config-color-picker').addEventListener('input', (e) => {
                 if (grabbedId) {
                     const hexColor = "0x" + e.target.value.substring(1);
@@ -941,7 +944,7 @@
                 // Network telemetry broadcast
                 if (!isMobileModeActive ? controls.isLocked : true) {
                     set(playerRef, {
-                        name: username, color: avatarColor, isAdminStatus: isAdmin,
+                        name: username, color: avatarColor, isAdminStatus: isLocalAdmin,
                         x: playerBody.position.x, y: playerBody.position.y, z: playerBody.position.z,
                         rotationY: yaw, headPitch: pitch
                     });
