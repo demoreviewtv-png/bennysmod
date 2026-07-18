@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Benny's Mod</title>
+    <title>Benny's Gmod Sandbox</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; user-select: none; }
         
@@ -24,7 +24,7 @@
             z-index: 100; color: white;
         }
         .menu-box {
-            background: rgba(0,0,0,0.6); padding: 30px; border-radius: 12px;
+            background: rgba(0,0,0,0.8); padding: 30px; border-radius: 12px;
             border: 1px solid #444; width: 320px; display: flex; flex-direction: column; gap: 15px;
         }
         .menu-box input, .menu-box select, .menu-box button {
@@ -46,7 +46,7 @@
         #spawn-menu {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 550px; background: rgba(20, 20, 20, 0.95);
+            width: 580px; background: rgba(20, 20, 20, 0.95);
             border: 2px solid #555; border-radius: 8px;
             padding: 20px; color: white; z-index: 20;
             display: none; box-shadow: 0 0 20px rgba(0,0,0,0.7);
@@ -54,9 +54,16 @@
         #spawn-menu h3 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center;}
         .menu-section { margin-bottom: 15px; }
         
-        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .spawn-btn { padding: 10px; background: #2a67bc; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase; }
-        .spawn-btn.active { background: #21a03c; }
+        .tabs { display: flex; gap: 5px; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 8px; }
+        .tab-btn { background: #333; color: #ccc; border: none; padding: 6px 12px; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; }
+        .tab-btn.active { background: #2a67bc; color: white; }
+
+        .grid { display: none; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .grid.active { display: grid; }
+        
+        .spawn-btn { padding: 10px; background: #2a2a35; color: white; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase; text-align: center; }
+        .spawn-btn:hover { background: #3a3a45; }
+        .spawn-btn.active { background: #21a03c; border-color: #2cbd4b; }
         
         .admin-btn { padding: 10px; background: #b83232; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
         .admin-btn:hover { background: #d94141; }
@@ -99,12 +106,11 @@
         <div class="error-box">
             <h2 style="color: #ff4444; margin-top: 0;">Game Error Encountered</h2>
             <p id="error-text">No errors detected yet.</p>
-            <p style="font-size: 12px; color: #aaa; margin-bottom: 0;">Note: If you double-clicked the HTML file directly from your folders, your browser may block network connections due to CORS rules. Use a local web server (like VS Code Live Server) to run it.</p>
         </div>
     </div>
 
     <div id="start-screen">
-        <h2>Benny's Mod Sandbox</h2>
+        <h2>Benny's Gmod Sandbox</h2>
         <div class="menu-box">
             <label>Username</label>
             <input type="text" id="username-input">
@@ -131,15 +137,30 @@
     </div>
 
     <div id="spawn-menu">
-        <h3>Sandbox Control Panel</h3>
+        <h3>Gmod Spawn Menu</h3>
         
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('shapes')">Basic Shapes</button>
+            <button class="tab-btn" onclick="switchTab('food')">Foods</button>
+            <button class="tab-btn" onclick="switchTab('furniture')">Props & Appliances</button>
+        </div>
+
         <div class="menu-section">
-            <h4>Basic Geometric Props</h4>
-            <div class="grid">
+            <div id="shapes-grid" class="grid active">
                 <button class="spawn-btn active" onclick="selectProp('cube', this)">Cube</button>
                 <button class="spawn-btn" onclick="selectProp('sphere', this)">Sphere</button>
                 <button class="spawn-btn" onclick="selectProp('cylinder', this)">Cylinder</button>
                 <button class="spawn-btn" onclick="selectProp('torus', this)">Donut</button>
+            </div>
+            <div id="food-grid" class="grid">
+                <button class="spawn-btn" onclick="selectProp('apple', this)">🍎 Apple</button>
+                <button class="spawn-btn" onclick="selectProp('watermelon', this)">🍉 Watermelon</button>
+                <button class="spawn-btn" onclick="selectProp('banana', this)">🍌 Banana</button>
+            </div>
+            <div id="furniture-grid" class="grid">
+                <button class="spawn-btn" onclick="selectProp('microwave', this)">📟 Microwave</button>
+                <button class="spawn-btn" onclick="selectProp('chair', this)">🪑 Chair</button>
+                <button class="spawn-btn" onclick="selectProp('table', this)">🪵 Table</button>
             </div>
         </div>
 
@@ -173,10 +194,10 @@
 
     <div id="instructions">
         <strong>Controls:</strong><br>
-        • Click screen to look (WASD to move, Space to Jump)<br>
+        • Click screen to lock cursor (WASD to move, Space to Jump)<br>
         • Hold <strong>Q</strong> to open Spawn Menu & Options<br>
-        • Left-Click to spawn selected prop<br>
-        • Right-Click & Hold to <strong>Grab, Swing & Throw Objects / Players</strong><br>
+        • Left-Click to spawn selected item<br>
+        • Right-Click & Hold to <strong>Physics Grab & Throw</strong><br>
         • Press <strong>J</strong>: Toggle 1st / 3rd Person View<br>
         • Press <strong>G</strong>: Toggle Fly Mode (Space=Up, Shift=Down)<br>
         • Press <strong>F</strong>: Delete Held Object<br>
@@ -214,7 +235,6 @@
         import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
         import * as CANNON from 'cannon-es';
 
-        // --- USER EXPLICIT FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyBmHx2iZL0UFgr_d0y0-ENIQQ6EF82XuIs",
             authDomain: "bennysmod.firebaseapp.com",
@@ -258,13 +278,13 @@
 
         const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -22, 0) });
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(10, 30, 10);
+        dirLight.position.set(15, 40, 15);
         scene.add(dirLight);
 
-        const groundMat = new THREE.MeshStandardMaterial({ color: 0x22222b });
-        const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMat);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x22222b, roughness: 0.4 });
+        const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), groundMat);
         groundMesh.rotation.x = -Math.PI / 2;
         scene.add(groundMesh);
         const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
@@ -275,52 +295,54 @@
         const groundPhysMat = new CANNON.Material("groundMaterial");
         const propPhysMat = new CANNON.Material("propMaterial");
         
-        const contactMat = new CANNON.ContactMaterial(playerPhysMat, groundPhysMat, { friction: 0.1, restitution: 0.0 });
-        const playerPropContactMat = new CANNON.ContactMaterial(playerPhysMat, propPhysMat, { friction: 0.3, restitution: 0.1 });
+        // --- FIXED SLIPPERY GMOD PHYSICS ---
+        const contactMat = new CANNON.ContactMaterial(playerPhysMat, groundPhysMat, { friction: 0.05, restitution: 0.0 });
+        const playerPropContactMat = new CANNON.ContactMaterial(playerPhysMat, propPhysMat, { friction: 0.2, restitution: 0.1 });
+        const propGroundContactMat = new CANNON.ContactMaterial(propPhysMat, groundPhysMat, { friction: 0.08, restitution: 0.2 });
         world.addContactMaterial(contactMat);
         world.addContactMaterial(playerPropContactMat);
+        world.addContactMaterial(propGroundContactMat);
         groundBody.material = groundPhysMat;
 
-        const playerRadius = 0.6, playerHeight = 1.8;
+        const playerRadius = 0.5, playerHeight = 1.8;
         const playerShape = new CANNON.Cylinder(playerRadius, playerRadius, playerHeight, 8);
         const playerBody = new CANNON.Body({ mass: 70, shape: playerShape, fixedRotation: true, material: playerPhysMat });
         playerBody.position.set(0, 3, 5);
         world.addBody(playerBody);
 
-        // Helper function to build the multi-jointed modular character structure
+        // --- JOINTED DETACHED HEAD/LEG AVATAR CONSTRUCTION ---
         function buildAvatarGroup(colorHex) {
             const rootGroup = new THREE.Group();
 
-            // Torso / Body
-            const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 0.9, 10), new THREE.MeshStandardMaterial({ color: colorHex }));
-            bodyMesh.position.y = 0.15; // Centered inside the bounds
+            // Torso
+            const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.25, 0.9, 10), new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3 }));
+            bodyMesh.position.y = 0.15; 
             rootGroup.add(bodyMesh);
 
-            // Detached Head Group (Allows pitch tilting separate from body rotation)
+            // Completely Detached Head Group
             const headGroup = new THREE.Group();
             headGroup.position.y = 0.75; 
             
-            const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
             headGroup.add(headMesh);
 
-            const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
-            visorMesh.position.set(0, 0, 0.24); 
+            const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.1, 0.18), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+            visorMesh.position.set(0, 0, 0.22); 
             headGroup.add(visorMesh);
-            
             rootGroup.add(headGroup);
 
-            // Left Leg Pivot Group
+            // Left Leg Pivot
             const leftLegPivot = new THREE.Group();
-            leftLegPivot.position.set(-0.2, -0.3, 0);
-            const leftLegMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.6, 8), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            leftLegPivot.position.set(-0.18, -0.3, 0);
+            const leftLegMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.6, 8), new THREE.MeshStandardMaterial({ color: 0x151515 }));
             leftLegMesh.position.y = -0.3; 
             leftLegPivot.add(leftLegMesh);
             rootGroup.add(leftLegPivot);
 
-            // Right Leg Pivot Group
+            // Right Leg Pivot
             const rightLegPivot = new THREE.Group();
             rightLegPivot.position.set(0.2, -0.3, 0);
-            const rightLegMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.6, 8), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            const rightLegMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.6, 8), new THREE.MeshStandardMaterial({ color: 0x151515 }));
             rightLegMesh.position.y = -0.3;
             rightLegPivot.add(rightLegMesh);
             rootGroup.add(rightLegPivot);
@@ -338,7 +360,7 @@
         scene.add(localAvatar.root);
         localAvatar.root.visible = false;
 
-        const beamMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 3 });
+        const beamMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 4 });
         const beamGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
         const beamLine = new THREE.Line(beamGeometry, beamMaterial);
         beamLine.visible = false;
@@ -369,6 +391,13 @@
             currentPropType = type;
             document.querySelectorAll('.spawn-btn').forEach(btn => btn.classList.remove('active'));
             element.classList.add('active');
+        };
+
+        window.switchTab = function(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.grid').forEach(grid => grid.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabId + '-grid').classList.add('active');
         };
 
         // --- START GAME INITIALIZATION ---
@@ -402,7 +431,7 @@
 
             onValue(ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`), (snapshot) => {
                 if (snapshot.val()) {
-                    alert("You have been banned from this private sandbox room.");
+                    alert("You have been banned from this room.");
                     location.reload();
                 }
             });
@@ -431,7 +460,7 @@
 
             onValue(playerRef, (snapshot) => {
                 if (gameActive && !snapshot.exists()) {
-                    alert("You have been removed or banned from the server room.");
+                    alert("Removed from server room.");
                     location.reload();
                 }
             });
@@ -493,17 +522,14 @@
                         scene.add(networkPlayers[id].root);
                     }
 
-                    // Directly sync position to true physics center
                     networkPlayers[id].root.position.set(data[id].x, data[id].y, data[id].z);
-                    
                     if(data[id].rotationY !== undefined) networkPlayers[id].root.rotation.y = data[id].rotationY;
                     if(data[id].headPitch !== undefined) networkPlayers[id].headGroup.rotation.x = data[id].headPitch;
                     if(data[id].headYaw !== undefined) networkPlayers[id].headGroup.rotation.y = data[id].headYaw;
 
-                    // Animate remote player legs based on network states
                     if (data[id].isFlyingState) {
-                        networkPlayers[id].leftLeg.rotation.x = 0.7;
-                        networkPlayers[id].rightLeg.rotation.x = 0.7;
+                        networkPlayers[id].leftLeg.rotation.x = 0.8;
+                        networkPlayers[id].rightLeg.rotation.x = 0.8;
                     } else if (data[id].isMovingState) {
                         const t = window.performance.now() * 0.012;
                         networkPlayers[id].leftLeg.rotation.x = Math.sin(t) * 0.6;
@@ -578,7 +604,7 @@
                 if (isFlying) {
                     flyUp = true;
                 } else if (canJump) { 
-                    playerBody.velocity.y = 10.5; 
+                    playerBody.velocity.y = 11.5; 
                     canJump = false; 
                 }
             }
@@ -591,9 +617,7 @@
             }
             if (e.code === 'KeyG') {
                 isFlying = !isFlying;
-                if (isFlying) {
-                    playerBody.velocity.set(0, 0, 0);
-                }
+                if (isFlying) playerBody.velocity.set(0, 0, 0);
             }
             if (e.code === 'KeyF') {
                 if (grabbedObj && !grabIsPlayer) {
@@ -629,25 +653,60 @@
             if (e.code === 'KeyQ') { menu.style.display = 'none'; controls.lock(); }
         });
 
+        // --- GMOD STUFF PROP FACTORY ---
         function createLocalProp(id, type, x, y, z, isFrozen) {
-            let mesh, shape;
-            let size = 1.2;
+            let mesh = new THREE.Group();
+            let shape;
 
             if (type === 'cube') { 
-                mesh = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.2 }));
-                shape = new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)); 
+                const m = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.2 }));
+                mesh.add(m); shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.6)); 
             }
             else if (type === 'sphere') { 
-                mesh = new THREE.Mesh(new THREE.SphereGeometry(size/2, 16, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
-                shape = new CANNON.Sphere(size/2); 
+                const m = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
+                mesh.add(m); shape = new CANNON.Sphere(0.6); 
             }
             else if (type === 'cylinder') { 
-                mesh = new THREE.Mesh(new THREE.CylinderGeometry(size/2, size/2, size, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
-                shape = new CANNON.Cylinder(size/2, size/2, size, 16); 
+                const m = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.2, 16), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
+                mesh.add(m); shape = new CANNON.Cylinder(0.6, 0.6, 1.2, 16); 
             }
             else if (type === 'torus') { 
-                mesh = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.2, 8, 24), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
-                shape = new CANNON.Sphere(0.6); 
+                const m = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.2, 8, 24), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
+                mesh.add(m); shape = new CANNON.Sphere(0.6); 
+            }
+            else if (type === 'apple') {
+                const bodyM = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), new THREE.MeshStandardMaterial({ color: 0xff3333, roughness: 0.5 }));
+                const stemM = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.15), new THREE.MeshStandardMaterial({ color: 0x5c4033 }));
+                stemM.position.y = 0.35; mesh.add(bodyM, stemM);
+                shape = new CANNON.Sphere(0.35);
+            }
+            else if (type === 'watermelon') {
+                const m = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), new THREE.MeshStandardMaterial({ color: 0x2e5c1e, roughness: 0.6 }));
+                m.scale.set(1, 0.7, 0.7); mesh.add(m);
+                shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.4, 0.4));
+            }
+            else if (type === 'banana') {
+                const m = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.1, 8, 12, Math.PI/1.5), new THREE.MeshStandardMaterial({ color: 0xffd700 }));
+                mesh.add(m); shape = new CANNON.Sphere(0.35);
+            }
+            else if (type === 'microwave') {
+                const main = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.8), new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.4 }));
+                const windowM = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.05), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+                windowM.position.set(-0.15, 0, 0.41);
+                const panel = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.05), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+                panel.position.set(0.4, 0, 0.41);
+                mesh.add(main, windowM, panel);
+                shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.4, 0.4));
+            }
+            else if (type === 'chair') {
+                const seat = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.8), new THREE.MeshStandardMaterial({ color: 0x8b5a2b }));
+                const back = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), new THREE.MeshStandardMaterial({ color: 0x8b5a2b }));
+                back.position.set(0, 0.4, -0.35); mesh.add(seat, back);
+                shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.5, 0.4));
+            }
+            else if (type === 'table') {
+                const top = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.1, 1.2), new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.7 }));
+                mesh.add(top); shape = new CANNON.Box(new CANNON.Vec3(1.0, 0.4, 0.6));
             }
 
             scene.add(mesh);
@@ -716,8 +775,7 @@
                 if (!grabIsPlayer) {
                     grabbedObj.body.mass = 8;
                     grabbedObj.body.updateMassProperties();
-                    
-                    grabbedObj.body.velocity.copy(grabbedVelocity).scale(1.8);
+                    grabbedObj.body.velocity.copy(grabbedVelocity).scale(2.2);
                     
                     update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
                         frozen: false,
@@ -769,25 +827,24 @@
                     playerBody.force.set(0, 0, 0);
                 }
 
-                // Match avatar position to true physics cylinder center
+                // Match layout coordinate flawlessly 
                 localAvatar.root.position.copy(playerBody.position);
 
                 const camDir = new THREE.Vector3();
                 camera.getWorldDirection(camDir);
 
-                // Body turns with camera horizontally
+                // Body handles camera yaw orientation
                 const targetYaw = Math.atan2(-camDir.x, -camDir.z);
                 localAvatar.root.rotation.y = targetYaw;
 
-                // Head turns with camera detached (computes raw relative view angle pitch/yaw shifts)
+                // Detached head tracks view look vectors explicitly (pitch calculation)
                 const camEuler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
-                localAvatar.headGroup.rotation.x = camEuler.x; // Pitch Look Up/Down
-                localAvatar.headGroup.rotation.y = 0;          // Relative to body yaw orientation
+                localAvatar.headGroup.rotation.x = camEuler.x; 
 
-                // Local dynamic Leg Animation updates
+                // Dynamic limb transformations
                 if (isFlying) {
-                    localAvatar.leftLeg.rotation.x = 0.7; // Tucked/curled backward
-                    localAvatar.rightLeg.rotation.x = 0.7;
+                    localAvatar.leftLeg.rotation.x = 0.8; 
+                    localAvatar.rightLeg.rotation.x = 0.8;
                 } else if (isMoving && controls.isLocked) {
                     const t = window.performance.now() * 0.012;
                     localAvatar.leftLeg.rotation.x = Math.sin(t) * 0.6;
@@ -803,7 +860,6 @@
                     backCamPos.addScaledVector(camDir, -4);
                     camera.position.copy(backCamPos);
                 } else {
-                    // Eyeline aligned with detached head level inside capsule bounds
                     camera.position.set(playerBody.position.x, playerBody.position.y + 0.75, playerBody.position.z);
                 }
 
@@ -854,7 +910,6 @@
 
                 if (controls.isLocked && !isFlying) {
                     const speedMultiplier = 14.0; 
-                    
                     let inputZ = Number(moveForward) - Number(moveBackward);
                     let inputX = Number(moveRight) - Number(moveLeft); 
 
@@ -881,7 +936,7 @@
                         color: avatarColor, 
                         isAdminStatus: isAdmin,
                         x: playerBody.position.x, 
-                        y: playerBody.position.y, // True unmodified center
+                        y: playerBody.position.y, 
                         z: playerBody.position.z,
                         rotationY: localAvatar.root.rotation.y,
                         headPitch: localAvatar.headGroup.rotation.x,
