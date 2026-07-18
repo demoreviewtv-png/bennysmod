@@ -34,13 +34,13 @@
         .menu-box button { background: #21a03c; color: white; font-weight: bold; cursor: pointer; }
         .menu-box button:hover { background: #2cbd4b; }
 
-        /* ERROR/PROTOCOL ALERT SCREEN */
+        /* ERROR REPORTING SCREEN */
         #error-screen {
             position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: #4a1515; display: none; flex-direction: column; 
-            align-items: center; justify-content: center; z-index: 200; color: white; padding: 20px; box-sizing: border-box;
+            background: #4a1212; display: none; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 999; color: white; padding: 20px; text-align: center;
         }
-        .error-box { background: rgba(0,0,0,0.5); padding: 25px; border-radius: 8px; max-width: 500px; border: 1px solid #ff4444; }
+        .error-box { background: rgba(0,0,0,0.7); padding: 30px; border-radius: 12px; border: 2px solid #ff4444; max-width: 500px; }
 
         /* Q MENU */
         #spawn-menu {
@@ -91,16 +91,15 @@
             color: white; background: rgba(0,0,0,0.7);
             padding: 12px; border-radius: 5px; pointer-events: none; font-size: 13px; display: none;
         }
-        .protocol-warning { color: #ffbc00; font-size: 12px; margin-top: 5px; text-align: center; line-height: 1.4; }
     </style>
 </head>
 <body>
 
     <div id="error-screen">
         <div class="error-box">
-            <h2 style="margin-top:0; color:#ff6b6b;">Engine Connection Error</h2>
-            <p id="error-message">An unknown error occurred while initializing the network services.</p>
-            <p style="font-size: 13px; color: #ccc;"><strong>Tip:</strong> If you are opening this file directly via double-click (<code>file://</code>), modern web browsers block modular scripts due to security policy rules. Please run via a local web server tool.</p>
+            <h2 style="color: #ff4444; margin-top: 0;">Game Error Encountered</h2>
+            <p id="error-text">No errors detected yet.</p>
+            <p style="font-size: 12px; color: #aaa; margin-bottom: 0;">Note: If you double-clicked the HTML file directly from your folders, your browser may block network connections due to CORS rules. Use a local web server (like VS Code Live Server) to run it.</p>
         </div>
     </div>
 
@@ -121,7 +120,6 @@
             <input type="text" id="room-input" value="sandbox-1">
             
             <button id="start-btn">LAUNCH GAME</button>
-            <div id="protocol-check" class="protocol-warning"></div>
         </div>
     </div>
 
@@ -186,25 +184,14 @@
     </div>
 
     <script>
-        // Catch network configuration initialization flaws prior to runtime loading
-        window.showVisualError = function(msg) {
-            const errScreen = document.getElementById('error-screen');
-            if (errScreen) {
-                document.getElementById('error-message').textContent = msg;
-                errScreen.style.display = 'flex';
-            }
-        };
-
         window.addEventListener('error', function(e) {
-            window.showVisualError(e.message || "A runtime execution error occurred inside the sandbox scripts.");
+            document.getElementById('error-text').innerText = e.message + "\n\nIn: " + e.filename + " (Line " + e.lineno + ")";
+            document.getElementById('error-screen').style.display = 'flex';
         });
-
-        // Pre-check the browser protocol setup
-        if (window.location.protocol === 'file:') {
-            document.addEventListener("DOMContentLoaded", function() {
-                document.getElementById('protocol-check').innerHTML = "⚠️ WARNING: You opened this file via double-click (file:// protocol). Security features will likely block Firebase connections. Run this with a Local Server!";
-            });
-        }
+        window.addEventListener('unhandledrejection', function(e) {
+            document.getElementById('error-text').innerText = "Database Connection Error:\n" + e.reason.message;
+            document.getElementById('error-screen').style.display = 'flex';
+        });
     </script>
 
     <script type="importmap">
@@ -219,7 +206,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, onChildAdded, onChildRemoved, remove, onDisconnect, update } 
+        import { getDatabase, ref, set, onValue, onChildAdded, onChildRemoved, onChildChanged, remove, onDisconnect, update } 
         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
         import * as THREE from 'three';
@@ -239,13 +226,8 @@
             measurementId: "G-TB8EBLGN6X"
         };
 
-        let app, db;
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getDatabase(app);
-        } catch (initializationError) {
-            window.showVisualError("Firebase Initialization Error: " + initializationError.message);
-        }
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
 
         let roomId, playerId, username, avatarColor;
         let playerRef, propsRef, envRef, adminRef, roomRef;
@@ -351,50 +333,46 @@
 
         // --- START GAME INITIALIZATION ---
         document.getElementById('start-btn').addEventListener('click', () => {
-            try {
-                username = document.getElementById('username-input').value.trim() || "Player";
-                avatarColor = parseInt(document.getElementById('avatar-input').value);
-                roomId = document.getElementById('room-input').value.trim() || "global";
-                playerId = Math.random().toString(36).substring(2, 9);
+            username = document.getElementById('username-input').value.trim() || "Player";
+            avatarColor = parseInt(document.getElementById('avatar-input').value);
+            roomId = document.getElementById('room-input').value.trim() || "global";
+            playerId = Math.random().toString(36).substring(2, 9);
 
-                localBodyMesh.material.color.setHex(avatarColor);
-                localStorage.setItem('bm_saved_username', username);
+            localBodyMesh.material.color.setHex(avatarColor);
+            localStorage.setItem('bm_saved_username', username);
 
-                roomRef = ref(db, `rooms/${roomId}`);
-                playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
-                propsRef = ref(db, `rooms/${roomId}/props`);
-                envRef = ref(db, `rooms/${roomId}/environment`);
-                adminRef = ref(db, `rooms/${roomId}/admin`);
+            roomRef = ref(db, `rooms/${roomId}`);
+            playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
+            propsRef = ref(db, `rooms/${roomId}/props`);
+            envRef = ref(db, `rooms/${roomId}/environment`);
+            adminRef = ref(db, `rooms/${roomId}/admin`);
 
-                onDisconnect(playerRef).remove();
-                
-                onDisconnect(ref(db, `rooms/${roomId}/players`)).then(() => {
-                    onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
-                        if (snap.exists() && Object.keys(snap.val()).length <= 1) {
-                            remove(roomRef);
-                        }
-                    }, { onlyOnce: true });
-                });
-
-                onValue(ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`), (snapshot) => {
-                    if (snapshot.val()) {
-                        alert("You have been banned from this private sandbox room.");
-                        location.reload();
+            onDisconnect(playerRef).remove();
+            
+            onDisconnect(ref(db, `rooms/${roomId}/players`)).then(() => {
+                onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
+                    if (snap.exists() && Object.keys(snap.val()).length <= 1) {
+                        remove(roomRef);
                     }
-                });
+                }, { onlyOnce: true });
+            });
 
-                setupMultiplayerListeners();
+            onValue(ref(db, `rooms/${roomId}/bans/${username.toLowerCase()}`), (snapshot) => {
+                if (snapshot.val()) {
+                    alert("You have been banned from this private sandbox room.");
+                    location.reload();
+                }
+            });
 
-                document.getElementById('start-screen').style.display = 'none';
-                document.getElementById('crosshair').style.display = 'block';
-                document.getElementById('instructions').style.display = 'block';
-                document.getElementById('player-list-panel').style.display = 'block';
-                
-                controls.lock();
-                gameActive = true;
-            } catch (connectionError) {
-                window.showVisualError("Failed to build room listeners. Details: " + connectionError.message);
-            }
+            setupMultiplayerListeners();
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('crosshair').style.display = 'block';
+            document.getElementById('instructions').style.display = 'block';
+            document.getElementById('player-list-panel').style.display = 'block';
+            
+            controls.lock();
+            gameActive = true;
         });
 
         function setupMultiplayerListeners() {
@@ -406,7 +384,7 @@
                     document.getElementById('admin-panel').style.display = 'block';
                     document.querySelectorAll('.ban-action').forEach(b => b.style.display = 'inline-block');
                 }
-            }, (err) => { window.showVisualError("Database sync error: " + err.message); });
+            });
 
             onValue(playerRef, (snapshot) => {
                 if (gameActive && !snapshot.exists()) {
@@ -511,7 +489,8 @@
                 }
             });
 
-            propsRef.on('child_changed', (snapshot) => {
+            /* FIXED: Replaced old .on syntax with proper v10 onChildChanged syntax */
+            onChildChanged(propsRef, (snapshot) => {
                 const id = snapshot.key;
                 const data = snapshot.val();
                 if (props[id]) {
