@@ -90,6 +90,23 @@
 
         #admin-panel { display: none; border-top: 1px solid #444; margin-top: 15px; padding-top: 10px; }
 
+        /* OBJECT CONFIGURATION QUICK MENU */
+        #config-menu {
+            position: absolute; top: 30%; left: 50%;
+            transform: translate(-50%, -30%);
+            width: 260px; background: rgba(20, 20, 20, 0.95);
+            border: 2px solid #ff943d; border-radius: 8px;
+            padding: 15px; color: white; z-index: 30;
+            display: none; box-shadow: 0 0 25px rgba(255, 148, 61, 0.4);
+        }
+        #config-menu h4 { margin: 0 0 10px 0; border-bottom: 1px solid #555; padding-bottom: 5px; text-align: center; color: #ff943d; }
+        .config-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+        .config-row label { font-size: 12px; color: #bbb; }
+        .config-row input[type="color"] { width: 100%; height: 35px; border: none; border-radius: 4px; cursor: pointer; background: #333; }
+        .config-btn { padding: 8px; font-weight: bold; font-size: 12px; background: #2a67bc; color: white; border: none; border-radius: 4px; cursor: pointer; text-transform: uppercase; }
+        .config-btn:hover { background: #3a77cc; }
+        .config-btn.frozen-active { background: #d76e15; }
+
         /* SCOREBOARD / PLAYER LIST */
         #player-list-panel {
             position: absolute; top: 20px; right: 20px;
@@ -170,6 +187,18 @@
         <div id="player-list-content"></div>
     </div>
 
+    <div id="config-menu">
+        <h4>Object Context Options</h4>
+        <div class="config-row">
+            <label>Modify Prop Mesh Color:</label>
+            <input type="color" id="config-color-picker">
+        </div>
+        <div class="config-row">
+            <button class="config-btn" id="config-gravity-btn">Toggle Physics Freeze</button>
+        </div>
+        <div style="font-size: 11px; color: #888; text-align: center;">Release Right-Click to close</div>
+    </div>
+
     <div id="spawn-menu">
         <h3>Sandbox Control Panel</h3>
         
@@ -237,12 +266,10 @@
         • Click screen to capture look (WASD = Move, Space = Jump)<br>
         • Hold <strong>Q</strong>: Open Spawn Menu & Change Tools<br>
         • Left-Click: Use current active Toolgun / Spawn active Prop (or 3D Jukebox)<br>
-        • Right-Click & Hold: <strong>Physgun Grab / Move Object (or AFK Player)</strong><br>
-        • Press <strong>J</strong>: Toggle 1st / 3rd Person View<br>
-        • Press <strong>G</strong>: Toggle Fly Mode (Space=Up, Shift=Down)<br>
-        • Press <strong>F</strong>: Delete Held Object<br>
-        • Press <strong>Z</strong>: Toggle Physics Freeze on pointed object<br>
-        • <strong>AFK Mode:</strong> Idle players turn into physics ragdoll props after 15s!
+        • Right-Click & Hold: <strong>Physgun Grab Object</strong><br>
+        • Hold <strong>E</strong> while grabbing: <strong>Configure Held Object Menu</strong><br>
+        • Press <strong>Z</strong>: Toggle Zero-Gravity / Physics Freeze on pointed object<br>
+        • Press <strong>J</strong>: Toggle 1st / 3rd Person View | <strong>G</strong>: Fly Mode
     </div>
 
     <script>
@@ -290,15 +317,13 @@
         let playerRef, propsRef, envRef, adminRef, roomRef;
         let gameActive = false, isAdmin = false;
         
-        // AFK Variables
         let lastInputTime = Date.now();
         let isLocalAfk = false;
 
-        // Audio Variables
         let audioListener, backgroundAudio;
         const audioTracks = {
-            synthwave: 'https://actions.google.com/sounds/v1/science_fiction/ambient_space_machine.ogg',
-            sandbox: 'https://actions.google.com/sounds/v1/cartoon/upbeat_rhythm.ogg'
+            synthwave: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+            sandbox: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3'
         };
 
         const savedUsername = localStorage.getItem('bm_saved_username');
@@ -332,7 +357,6 @@
         scene.background = new THREE.Color(0x1a1a24);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         
-        // Audio Systems Setup
         audioListener = new THREE.AudioListener();
         camera.add(audioListener);
         backgroundAudio = new THREE.Audio(audioListener);
@@ -349,6 +373,7 @@
         document.body.appendChild(labelRenderer.domElement);
 
         const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -22, 0) });
+        world.defaultContactMaterial.friction = 0.05;
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -367,8 +392,8 @@
         const groundPhysMat = new CANNON.Material("groundMaterial");
         const propPhysMat = new CANNON.Material("propMaterial");
         
-        world.addContactMaterial(new CANNON.ContactMaterial(playerPhysMat, groundPhysMat, { friction: 0.1, restitution: 0.0 }));
-        world.addContactMaterial(new CANNON.ContactMaterial(playerPhysMat, propPhysMat, { friction: 0.3, restitution: 0.1 }));
+        world.addContactMaterial(new CANNON.ContactMaterial(playerPhysMat, groundPhysMat, { friction: 0.05, restitution: 0.0 }));
+        world.addContactMaterial(new CANNON.ContactMaterial(playerPhysMat, propPhysMat, { friction: 0.1, restitution: 0.1 }));
         groundBody.material = groundPhysMat;
 
         const playerRadius = 0.6, playerHeight = 1.8;
@@ -376,12 +401,10 @@
         playerBody.position.set(Math.random() * 6 - 3, 3, Math.random() * 6 - 3);
         world.addBody(playerBody);
 
-        // --- LOCAL VISUAL AVATAR SET UP ---
         const localVisualGroup = new THREE.Group();
         const localBodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: 0xff3333 }));
         localBodyMesh.position.y = 0.6; localVisualGroup.add(localBodyMesh);
         
-        // Dynamic Head Sub-Group Assembly
         const localHeadGroup = new THREE.Group();
         localHeadGroup.position.y = 1.35;
         
@@ -403,6 +426,7 @@
 
         const controls = new PointerLockControls(camera, renderer.domElement);
         const menu = document.getElementById('spawn-menu');
+        const configMenu = document.getElementById('config-menu');
 
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
         let flyUp = false, flyDown = false;
@@ -411,6 +435,7 @@
         let grabbedObj = null; 
         let grabDistance = 0;
         let grabIsPlayerId = null;
+        let isConfiguring = false;
         
         let isThirdPerson = false;
         let isFlying = false;
@@ -422,7 +447,7 @@
         const networkPlayers = {};
 
         let currentPropType = 'cube';
-        let currentToolMode = 'spawn'; // Options: spawn, color, remover, ignite
+        let currentToolMode = 'spawn'; 
 
         window.selectProp = function(type, element) {
             currentPropType = type;
@@ -445,8 +470,6 @@
         // --- START GAME ---
         document.getElementById('start-btn').addEventListener('click', () => {
             username = document.getElementById('username-input').value.trim() || "Player";
-            
-            // Hex Color Picker reading
             const pickerColor = document.getElementById('avatar-input').value;
             avatarColor = parseInt(pickerColor.replace("#", "0x"));
 
@@ -485,7 +508,6 @@
             document.getElementById('player-list-panel').style.display = 'block';
             document.getElementById('hud-tool').style.display = 'block';
             
-            // Resume Audio Context on interaction
             if (audioListener.context.state === 'suspended') {
                 audioListener.context.resume();
             }
@@ -556,13 +578,11 @@
                     }
                     listPanel.appendChild(pRow);
 
-                    // Create or track remote player structures
                     if (!networkPlayers[id]) {
                         const group = new THREE.Group();
                         const bMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: pData.color || 0xff0000 }));
                         bMesh.position.y = 0.6; group.add(bMesh);
                         
-                        // Assemble Remote Head System
                         const rHeadGroup = new THREE.Group();
                         rHeadGroup.position.y = 1.35;
                         
@@ -645,13 +665,27 @@
                 const id = snapshot.key;
                 const data = snapshot.val();
                 if (props[id]) {
-                    if (data.color) props[id].mesh.material.color.setHex(data.color);
+                    // Update color smoothly if changed remotely
+                    if (data.color && props[id].mesh) {
+                        if (props[id].mesh.material) {
+                            props[id].mesh.material.color.setHex(data.color);
+                        } else {
+                            props[id].mesh.traverse(child => {
+                                if (child.isMesh && child.material && child.material.name !== "neon") child.material.color.setHex(data.color);
+                            });
+                        }
+                    }
+                    
                     if (data.frozen) {
                         props[id].body.mass = 0;
                         props[id].body.type = CANNON.Body.STATIC;
+                        props[id].body.velocity.set(0, 0, 0);
+                        props[id].body.angularVelocity.set(0, 0, 0);
                     } else {
-                        props[id].body.mass = 8;
-                        props[id].body.type = CANNON.Body.DYNAMIC;
+                        if (grabbedObj !== props[id]) {
+                            props[id].body.mass = 8;
+                            props[id].body.type = CANNON.Body.DYNAMIC;
+                        }
                     }
                     props[id].body.updateMassProperties();
                     if (grabbedObj !== props[id]) {
@@ -689,6 +723,36 @@
             if (isAdmin) remove(propsRef);
         });
 
+        // --- CONFIGURE MENU LISTENERS ---
+        document.getElementById('config-color-picker').addEventListener('input', (e) => {
+            if (grabbedObj && !grabIsPlayerId) {
+                const hexColor = parseInt(e.target.value.replace("#", "0x"));
+                update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), { color: hexColor });
+            }
+        });
+
+        document.getElementById('config-gravity-btn').addEventListener('click', () => {
+            if (grabbedObj && !grabIsPlayerId) {
+                // Read from scene lookup to see what the current firebase state is
+                onValue(ref(db, `rooms/${roomId}/props/${grabbedObj.id}/frozen`), (snap) => {
+                    const currentlyFrozen = snap.val() || false;
+                    update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), { frozen: !currentlyFrozen });
+                    updateConfigMenuUI(!currentlyFrozen);
+                }, { onlyOnce: true });
+            }
+        });
+
+        function updateConfigMenuUI(isFrozen) {
+            const btn = document.getElementById('config-gravity-btn');
+            if (isFrozen) {
+                btn.innerText = "Physics Status: frozen";
+                btn.classList.add('frozen-active');
+            } else {
+                btn.innerText = "Physics Status: Dynamic";
+                btn.classList.remove('frozen-active');
+            }
+        }
+
         // --- INPUT EVENT HANDLING ---
         document.addEventListener('keydown', (e) => {
             if (!gameActive) return;
@@ -704,6 +768,23 @@
             }
             if (e.code === 'ShiftLeft') { if (isFlying) flyDown = true; }
             if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
+            
+            // Hold E while Grabbing an object opens configuration options
+            if (e.code === 'KeyE' && grabbedObj && !grabIsPlayerId) {
+                isConfiguring = true;
+                controls.unlock();
+                configMenu.style.display = 'block';
+                
+                // Set default picker value matching current object color
+                if (grabbedObj.mesh.material && grabbedObj.mesh.material.color) {
+                    document.getElementById('config-color-picker').value = "#" + grabbedObj.mesh.material.color.getHexString();
+                }
+
+                onValue(ref(db, `rooms/${roomId}/props/${grabbedObj.id}/frozen`), (snap) => {
+                    updateConfigMenuUI(snap.val() || false);
+                }, { onlyOnce: true });
+            }
+
             if (e.code === 'KeyJ') { isThirdPerson = !isThirdPerson; localVisualGroup.visible = isThirdPerson; }
             if (e.code === 'KeyG') {
                 isFlying = !isFlying;
@@ -713,8 +794,10 @@
                 if (grabbedObj && !grabIsPlayerId) {
                     remove(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`));
                     grabbedObj = null; beamLine.visible = false;
+                    configMenu.style.display = 'none';
                 }
             }
+            // Z Key: Instantly toggle dynamic vs frozen (no velocity / no gravity) state via pointer look
             if (e.code === 'KeyZ') {
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
                 const intersects = raycaster.intersectObjects(Object.values(props).map(p => p.mesh), true);
@@ -723,7 +806,8 @@
                     while (root.parent && !root.userData.id) { root = root.parent; }
                     const pId = root.userData.id;
                     if (props[pId]) {
-                        update(ref(db, `rooms/${roomId}/props/${pId}`), { frozen: props[pId].body.mass !== 0 });
+                        const nextState = props[pId].body.mass !== 0;
+                        update(ref(db, `rooms/${roomId}/props/${pId}`), { frozen: nextState });
                     }
                 }
             }
@@ -737,6 +821,13 @@
             if (e.code === 'Space') flyUp = false;
             if (e.code === 'ShiftLeft') flyDown = false;
             if (e.code === 'KeyQ') { menu.style.display = 'none'; controls.lock(); }
+            if (e.code === 'KeyE') {
+                if (isConfiguring) {
+                    isConfiguring = false;
+                    configMenu.style.display = 'none';
+                    controls.lock();
+                }
+            }
         });
 
         function createLocalProp(id, data) {
@@ -758,15 +849,16 @@
                 shape = new CANNON.Sphere(0.6); 
             } else if (data.type === 'speaker') {
                 mesh = new THREE.Group();
-                const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.4, 0.8), new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 }));
+                const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.4, 0.8), new THREE.MeshStandardMaterial({ color: data.color || 0x333333, metalness: 0.8 }));
                 const neonTrim = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.1, 0.85), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+                neonTrim.material.name = "neon";
                 neonTrim.position.y = 0.5;
                 mesh.add(bodyMesh, neonTrim);
                 shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.7, 0.4));
 
                 sound = new THREE.PositionalAudio(audioListener);
                 const audioLoader = new THREE.AudioLoader();
-                audioLoader.load('https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg', (buffer) => {
+                audioLoader.load('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', (buffer) => {
                     sound.setBuffer(buffer);
                     sound.setRefDistance(4);
                     sound.setMaxDistance(30);
@@ -781,9 +873,10 @@
             mesh.userData.id = id;
             scene.add(mesh);
 
+            const isFrozen = data.frozen || false;
             const body = new CANNON.Body({ 
-                mass: data.frozen ? 0 : 8, shape, material: propPhysMat,
-                type: data.frozen ? CANNON.Body.STATIC : CANNON.Body.DYNAMIC 
+                mass: isFrozen ? 0 : 8, shape, material: propPhysMat,
+                type: isFrozen ? CANNON.Body.STATIC : CANNON.Body.DYNAMIC 
             });
             body.position.set(data.x, data.y, data.z);
             world.addBody(body);
@@ -793,10 +886,11 @@
 
         // --- TOOLGUN CONTROLS ---
         window.addEventListener('mousedown', (e) => {
-            if (!controls.isLocked || !gameActive) return;
+            if ((!controls.isLocked && !isConfiguring) || !gameActive) return;
             resetInputTimer();
 
             if (e.button === 0) {
+                if (isConfiguring) return; // Prevent spawning through configuration screen clicks
                 const targetPos = new THREE.Vector3();
                 camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
 
@@ -831,6 +925,7 @@
             }
 
             if (e.button === 2) { 
+                if (isConfiguring) return;
                 raycaster.setFromCamera(new THREE.Vector2(), camera);
                 const propMeshes = Object.values(props).map(p => p.mesh);
                 const playerMeshes = Object.values(networkPlayers).map(p => p.mesh);
@@ -863,19 +958,39 @@
 
         window.addEventListener('mouseup', (e) => {
             if (e.button === 2 && grabbedObj) {
+                // If configuration menu was visible, close it
+                isConfiguring = false;
+                configMenu.style.display = 'none';
+                
                 if (!grabIsPlayerId) {
-                    grabbedObj.body.mass = 8;
-                    grabbedObj.body.updateMassProperties();
-                    grabbedObj.body.velocity.copy(grabbedVelocity).scale(2.2);
-                    
-                    update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
-                        frozen: false, x: grabbedObj.body.position.x, y: grabbedObj.body.position.y, z: grabbedObj.body.position.z
-                    });
+                    // Check database one last time to decide if object falls or freezes on release
+                    onValue(ref(db, `rooms/${roomId}/props/${grabbedObj.id}/frozen`), (snap) => {
+                        const shouldFreeze = snap.val() || false;
+                        if (shouldFreeze) {
+                            grabbedObj.body.mass = 0;
+                            grabbedObj.body.type = CANNON.Body.STATIC;
+                            grabbedObj.body.velocity.set(0,0,0);
+                            grabbedObj.body.angularVelocity.set(0,0,0);
+                        } else {
+                            grabbedObj.body.mass = 8;
+                            grabbedObj.body.type = CANNON.Body.DYNAMIC;
+                            grabbedObj.body.velocity.copy(grabbedVelocity).scale(2.2);
+                        }
+                        grabbedObj.body.updateMassProperties();
+                        
+                        update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
+                            frozen: shouldFreeze, x: grabbedObj.body.position.x, y: grabbedObj.body.position.y, z: grabbedObj.body.position.z
+                        });
+                        grabbedObj = null;
+                        beamLine.visible = false;
+                        controls.lock();
+                    }, { onlyOnce: true });
                 } else {
                     grabbedObj.body.velocity.copy(grabbedVelocity).scale(2.5);
+                    grabbedObj = null;
+                    beamLine.visible = false;
+                    controls.lock();
                 }
-                grabbedObj = null;
-                beamLine.visible = false;
             }
         });
 
@@ -941,21 +1056,21 @@
                 canJump = rayResult.hasHit;
 
                 Object.keys(props).forEach(id => {
-                    if (props[id].mesh instanceof THREE.Group) {
-                        props[id].mesh.position.copy(props[id].body.position);
-                        props[id].mesh.quaternion.copy(props[id].body.quaternion);
-                    } else {
-                        props[id].mesh.position.copy(props[id].body.position);
-                        props[id].mesh.quaternion.copy(props[id].body.quaternion);
-                    }
+                    props[id].mesh.position.copy(props[id].body.position);
+                    props[id].mesh.quaternion.copy(props[id].body.quaternion);
                 });
 
                 if (grabbedObj) {
-                    const targetPos = new THREE.Vector3();
-                    camera.getWorldDirection(targetPos).multiplyScalar(grabDistance).add(camera.position);
+                    let targetPos = new THREE.Vector3();
+                    if (isConfiguring) {
+                        // Keep current physics position frozen in beam line point if configuration menu is active
+                        targetPos.copy(grabbedObj.body.position);
+                    } else {
+                        camera.getWorldDirection(targetPos).multiplyScalar(grabDistance).add(camera.position);
+                        grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z);
+                    }
 
-                    grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z);
-                    if (delta > 0) {
+                    if (delta > 0 && !isConfiguring) {
                         grabbedVelocity.set(
                             (grabbedObj.body.position.x - lastGrabbedPos.x) / delta,
                             (grabbedObj.body.position.y - lastGrabbedPos.y) / delta,
@@ -963,11 +1078,12 @@
                         );
                     }
                     grabbedObj.body.velocity.set(0, 0, 0); 
+                    grabbedObj.body.angularVelocity.set(0, 0, 0);
                     lastGrabbedPos.copy(grabbedObj.body.position);
 
                     if (!grabIsPlayerId) {
-                        set(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
-                            type: grabbedObj.type, x: targetPos.x, y: targetPos.y, z: targetPos.z, frozen: false
+                        update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
+                            x: targetPos.x, y: targetPos.y, z: targetPos.z
                         });
                     } else {
                         set(ref(db, `rooms/${roomId}/players/${grabIsPlayerId}/x`), targetPos.x);
@@ -982,20 +1098,20 @@
                     beamLine.visible = true;
                 }
 
-                if (controls.isLocked && !isFlying) {
+                if ((controls.isLocked || isConfiguring) && !isFlying) {
                     let inputZ = Number(moveForward) - Number(moveBackward);
-                    let inputX = Number(moveLeft) - Number(moveRight);
+                    let inputX = Number(moveRight) - Number(moveLeft);
 
                     const camTarget = new THREE.Vector3(); camera.getWorldDirection(camTarget);
                     camTarget.y = 0; camTarget.normalize();
                     const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize();
 
                     const moveVector = new THREE.Vector3().addScaledVector(camTarget, inputZ).addScaledVector(camRight, inputX).normalize();
-                    playerBody.velocity.x = moveVector.x * 14.0;
-                    playerBody.velocity.z = moveVector.z * 14.0;
+                    playerBody.velocity.x = moveVector.x * 8.5;
+                    playerBody.velocity.z = moveVector.z * 8.5;
                 }
 
-                if (controls.isLocked) {
+                if (controls.isLocked || isConfiguring) {
                     set(playerRef, { 
                         name: username, color: avatarColor, isAdminStatus: isAdmin, afk: isLocalAfk,
                         x: playerBody.position.x, y: playerBody.position.y + 0.5, z: playerBody.position.z,
