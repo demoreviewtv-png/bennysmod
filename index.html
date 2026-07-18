@@ -64,7 +64,7 @@
             100% { transform: translate(-10%, 10%) scale(0.9); width: 550px; height: 550px; top: 60%; left: 20%; }
         }
 
-        .menu-container { display: flex; gap: 20px; max-width: 700px; width: 90%; z-index: 2; flex-wrap: wrap; }
+        .menu-container { display: flex; gap: 20px; max-width: 700px; width: 90%; z-index: 2; flex-wrap: wrap; justify-content: center; }
         .menu-box {
             background: rgba(0,0,0,0.75); padding: 25px; border-radius: 12px;
             border: 1px solid #444; flex: 1; display: flex; flex-direction: column; gap: 12px;
@@ -121,11 +121,17 @@
         .config-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
         .config-btn { padding: 8px; font-weight: bold; background: #2a67bc; color: white; border: none; border-radius: 4px; cursor: pointer; }
 
+        /* PLAYER LIST / SCOREBOARD */
         #player-list-panel { position: absolute; top: 20px; right: 20px; width: 240px; background: rgba(0,0,0,0.8); border: 1px solid #444; border-radius: 6px; padding: 10px; color: white; z-index: 15; display: none; }
         .player-list-item { font-size: 13px; margin: 6px 0; display: flex; align-items: center; justify-content: space-between; }
+        .player-info { display: flex; align-items: center; gap: 6px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #2cbd4b; box-shadow: 0 0 5px #2cbd4b; }
         .username-tag { color: white; background: rgba(0,0,0,0.75); padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 13px; border: 1px solid rgba(255,255,255,0.2); }
+        .admin-tag { color: #ff3333; font-size: 10px; font-weight: bold; display: block; text-align: center; margin-top: 1px; }
+
         #hud-tool { position: absolute; bottom: 20px; right: 20px; background: rgba(0, 0, 0, 0.75); color: #ff943d; padding: 10px 18px; border-radius: 6px; font-weight: bold; border: 1px solid #ff943d; font-size: 14px; display: none; z-index: 15; }
-        #instructions { position: absolute; bottom: 20px; left: 20px; color: white; background: rgba(0,0,0,0.75); padding: 12px; border-radius: 5px; pointer-events: none; font-size: 13px; display: none; border: 1px solid #444; }
+        
+        #instructions { position: absolute; bottom: 20px; left: 20px; color: white; background: rgba(0,0,0,0.75); padding: 12px; border-radius: 5px; pointer-events: none; font-size: 13px; display: none; border: 1px solid #444; line-height: 1.4; }
 
         /* TOUCH INTERFACE OVERLAY */
         #mobile-ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 18; display: none; }
@@ -139,6 +145,7 @@
         .mobile-action-btn:active { background: #2a67bc; border-color: #5599ff; }
         #mobile-menu-btn { top: 20px; left: 20px; width: 60px; height: 45px; }
         #mobile-cam-btn  { top: 20px; left: 95px; width: 60px; height: 45px; }
+        #mobile-grab-btn { bottom: 135px; right: 115px; width: 65px; height: 65px; border-radius: 50%; font-size: 11px; background: rgba(42, 103, 188, 0.65); border-color: rgba(85, 153, 255, 0.4); }
         #mobile-jump-btn { bottom: 175px; right: 40px; width: 60px; height: 60px; border-radius: 50%; font-size: 12px; }
         #mobile-fire-btn { bottom: 50px; right: 185px; width: 75px; height: 75px; border-radius: 50%; background: rgba(180,40,40,0.65); border-color: rgba(255,100,100,0.4); }
 
@@ -155,6 +162,7 @@
             border-radius: 50%; transform: translate(-50%, -50%);
             box-shadow: 0 4px 8px rgba(0,0,0,0.5); pointer-events: none;
         }
+        #mobile-look-pad { position: absolute; top: 0; right: 0; width: 65%; height: 100%; pointer-events: auto; z-index: 5; }
     </style>
 </head>
 <body>
@@ -178,6 +186,12 @@
                 <input type="color" id="avatar-input" value="#ff3333">
                 <label>Private Server Room ID</label>
                 <input type="text" id="room-input" value="sandbox-1">
+                <label>Interface Mode</label>
+                <select id="mobile-toggle-input">
+                    <option value="auto">Auto-Detect System</option>
+                    <option value="mobile">Force Mobile HUD</option>
+                    <option value="desktop">Force Desktop Keyboard</option>
+                </select>
                 <button id="start-btn">LAUNCH GAME</button>
             </div>
             <div class="server-list-container">
@@ -191,6 +205,7 @@
 
     <div id="crosshair"></div>
     <div id="hud-tool">Tool: Physgun / Spawn</div>
+    
     <div id="player-list-panel">
         <h4>Players Online</h4>
         <div id="player-list-content"></div>
@@ -208,9 +223,11 @@
     </div>
 
     <div id="mobile-ui-layer">
+        <div id="mobile-look-pad"></div>
         <div id="mobile-menu-btn" class="mobile-action-btn">MENU</div>
         <div id="mobile-cam-btn" class="mobile-action-btn">CAM</div>
-        <div id="mobile-fire-btn" class="mobile-action-btn">USE</div>
+        <div id="mobile-grab-btn" class="mobile-action-btn">GRAB</div>
+        <div id="mobile-fire-btn" class="mobile-action-btn">SPAWN</div>
         <div id="mobile-jump-btn" class="mobile-action-btn">JUMP</div>
     </div>
     <div id="move-joystick" class="joystick-container"><div class="joystick-knob"></div></div>
@@ -227,6 +244,9 @@
                     <button class="spawn-btn active" onclick="selectProp('cube', this)">Cube</button>
                     <button class="spawn-btn" onclick="selectProp('sphere', this)">Sphere</button>
                     <button class="spawn-btn" onclick="selectProp('cylinder', this)">Cylinder</button>
+                    <button class="spawn-btn" onclick="selectProp('cone', this)">Cone</button>
+                    <button class="spawn-btn" onclick="selectProp('torus', this)">Torus</button>
+                    <button class="spawn-btn" onclick="selectProp('capsule', this)">Capsule</button>
                 </div>
             </div>
         </div>
@@ -243,7 +263,7 @@
                 </div>
             </div>
         </div>
-        <div id="admin-panel" class="menu-section">
+        <div id="admin-panel" class="menu-section" style="display: block;">
             <button class="admin-btn" id="clear-room-btn">CLEAR ALL PROPS</button>
         </div>
     </div>
@@ -251,8 +271,11 @@
     <div id="instructions">
         <strong>Controls:</strong><br>
         • WASD / Sticks to move, Space to Jump<br>
-        • Q / MENU to open Spawn Menu<br>
-        • Left-Click / USE to spawn/fire selected item<br>
+        • Q / MENU: Open Spawn Menu<br>
+        • Left-Click / SPAWN: Spawn Selected Shape<br>
+        • Right-Click / GRAB: Hold/Drag Physics Objects<br>
+        • Hold Right-Click + Press <strong>R</strong>: Open Object Quick Context Menu<br>
+        • Press <strong>E</strong>: Delete Grabbed Held Prop Object<br>
         • J / CAM: Toggle 1st / 3rd Person View
     </div>
 
@@ -265,9 +288,10 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, remove, update, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        import { getDatabase, ref, set, onValue, remove, update, onDisconnect, onChildAdded, onChildChanged, onChildRemoved } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
         import * as CANNON from 'cannon-es';
 
         window.switchTab = function(tabName) {
@@ -282,41 +306,89 @@
         };
         window.currentSelectedPropType = 'cube';
 
-        // Firebase Setup Mocking fallback to bypass initialization constraints safely
+        // Firebase Setup
         const firebaseConfig = { databaseURL: "https://bennysmod-default-rtdb.firebaseio.com" };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
         let roomId, playerId, username, avatarColor;
-        let playerRef, propsRef, roomRef;
+        let playerRef, propsRef, roomRef, envRef, adminRef;
         let gameActive = false, isConfiguring = false, isThirdPerson = false;
+        let isMobileModeActive = false;
 
-        // Device Checkers & Mobile Vector Translation State Arrays
-        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 1024;
         let touchInputX = 0, touchInputZ = 0;
         let mobileYawAngle = 0, mobilePitchAngle = 0;
 
-        let scene, camera, renderer, world, controls;
+        let scene, camera, renderer, labelRenderer, world, controls;
         let playerBody, activeKeys = {};
         const networkProps = {};
+        const networkPlayers = {};
+
+        // Object Grab State
+        let grabbedId = null;
+        let grabConstraint = null;
+        let grabDistance = 4;
+        const dummyGrabBody = new CANNON.Body({ mass: 0 });
+        let lastSpawnTime = 0;
+        const SPAWN_COOLDOWN_MS = 250;
 
         document.getElementById('start-btn').addEventListener('click', () => {
             username = document.getElementById('username-input').value || "Player";
             avatarColor = document.getElementById('avatar-input').value;
             roomId = document.getElementById('room-input').value || "sandbox-1";
-            playerId = Math.random().toString(36).substring(2, 9);
+            playerId = "user_" + Math.random().toString(36).substring(2, 9);
+            localStorage.setItem('bm_username', username);
+
+            const toggleChoice = document.getElementById('mobile-toggle-input').value;
+            if (toggleChoice === 'mobile') isMobileModeActive = true;
+            else if (toggleChoice === 'desktop') isMobileModeActive = false;
+            else isMobileModeActive = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+            let isAdmin = username.toLowerCase() === "benny" || username.toLowerCase() === "admin";
+            if(isAdmin) document.getElementById('admin-panel').style.display = 'block';
 
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('crosshair').style.display = 'block';
             document.getElementById('instructions').style.display = 'block';
+            document.getElementById('player-list-panel').style.display = 'block';
             
-            initGame();
+            initGame(isAdmin);
         });
 
-        function initGame() {
+        document.getElementById('clear-room-btn').addEventListener('click', () => {
+            if (gameActive && propsRef) {
+                set(adminRef, { action: "clear", time: Date.now() });
+            }
+        });
+
+        // Track live servers for the starting menu
+        onValue(ref(db, "rooms"), (snapshot) => {
+            const container = document.getElementById('server-list-container');
+            container.innerHTML = "";
+            if (!snapshot.exists()) {
+                container.innerHTML = `<div class="no-servers">No active instances.<br>Launch a room target to create!</div>`;
+                return;
+            }
+            let total = 0;
+            snapshot.forEach((child) => {
+                const rId = child.key;
+                const playersData = child.child("players").val();
+                if (playersData) {
+                    total++;
+                    const count = Object.keys(playersData).length;
+                    const item = document.createElement('div');
+                    item.className = "server-item";
+                    item.innerHTML = `<span class="server-name">${rId}</span><span class="server-count">${count} active</span>`;
+                    item.addEventListener('click', () => { document.getElementById('room-input').value = rId; });
+                    container.appendChild(item);
+                }
+            });
+            if (total === 0) container.innerHTML = `<div class="no-servers">No active instances.<br>Launch a room target to create!</div>`;
+        });
+
+        function initGame(isAdmin) {
             gameActive = true;
 
-            // Setup THREE Scene
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x1a1a24);
 
@@ -325,11 +397,17 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // Physics Core
+            labelRenderer = new CSS2DRenderer();
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.domElement.style.position = 'absolute';
+            labelRenderer.domElement.style.top = '0px';
+            labelRenderer.domElement.style.pointerEvents = 'none';
+            document.body.appendChild(labelRenderer.domElement);
+
             world = new CANNON.World();
             world.gravity.set(0, -9.82, 0);
+            world.addBody(dummyGrabBody);
 
-            // Ground plane setup
             const groundMat = new THREE.MeshStandardMaterial({ color: 0x22222b });
             const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), groundMat);
             groundMesh.rotation.x = -Math.PI / 2;
@@ -339,43 +417,229 @@
             groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
             world.addBody(groundBody);
 
-            // Light sources
             const light = new THREE.DirectionalLight(0xffffff, 1.0);
             light.position.set(10, 20, 15);
             scene.add(light);
             scene.add(new THREE.AmbientLight(0x404040));
 
-            // Player Rigid Kinematics Shape Capsule setup
             const sphereShape = new CANNON.Sphere(0.8);
             playerBody = new CANNON.Body({ mass: 70, shape: sphereShape, fixedRotation: true });
             playerBody.position.set(0, 5, 0);
             world.addBody(playerBody);
 
             controls = new PointerLockControls(camera, renderer.domElement);
-            if (!isMobileDevice) {
-                renderer.domElement.addEventListener('click', () => controls.lock());
+            
+            // Firebase setup
+            roomRef = ref(db, `rooms/${roomId}`);
+            playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
+            propsRef = ref(db, `rooms/${roomId}/props`);
+            envRef = ref(db, `rooms/${roomId}/environment`);
+            adminRef = ref(db, `rooms/${roomId}/adminAction`);
+
+            onDisconnect(playerRef).remove();
+            set(playerRef, {
+                name: username, color: avatarColor, isAdminStatus: isAdmin,
+                x: playerBody.position.x, y: playerBody.position.y, z: playerBody.position.z,
+                rotationY: 0, headPitch: 0
+            });
+
+            setupNetworking(isAdmin);
+            setupInputControls();
+
+            animate();
+        }
+
+        function setupNetworking(isAdmin) {
+            // Player Sync and Scoreboard
+            onChildAdded(ref(db, `rooms/${roomId}/players`), (snap) => {
+                if (snap.key === playerId) return;
+                const val = snap.val();
+                const avatar = createAvatarGroup(val.color, val.name, val.isAdminStatus);
+                scene.add(avatar.root);
+                networkPlayers[snap.key] = avatar;
+                rebuildScoreboard();
+            });
+
+            onChildChanged(ref(db, `rooms/${roomId}/players`), (snap) => {
+                if (snap.key === playerId) return;
+                const val = snap.val();
+                const avatar = networkPlayers[snap.key];
+                if (avatar) {
+                    avatar.root.position.set(val.x, val.y - 0.9, val.z);
+                    avatar.root.rotation.y = val.rotationY || 0;
+                    avatar.headGroup.rotation.x = val.headPitch || 0;
+                }
+            });
+
+            onChildRemoved(ref(db, `rooms/${roomId}/players`), (snap) => {
+                if (networkPlayers[snap.key]) {
+                    scene.remove(networkPlayers[snap.key].root);
+                    delete networkPlayers[snap.key];
+                    rebuildScoreboard();
+                }
+            });
+
+            // Props Sync
+            onChildAdded(propsRef, (snap) => {
+                const id = snap.key;
+                const val = snap.val();
+                const mesh = createPropMeshInstance(val.type, val.customColor ? parseInt(val.customColor) : null);
+                
+                const group = new THREE.Group();
+                group.name = "prop";
+                group.userData.propId = id;
+                group.add(mesh);
+                scene.add(group);
+
+                const { shape } = getPropResource(val.type);
+                const body = new CANNON.Body({ mass: val.isFrozen ? 0 : 12, shape: shape });
+                if(val.isFrozen) body.type = CANNON.Body.STATIC;
+
+                body.position.set(val.x, val.y, val.z);
+                body.quaternion.set(val.qx, val.qy, val.qz, val.qw);
+                world.addBody(body);
+                networkProps[id] = { mesh: group, body: body, isFrozen: val.isFrozen };
+            });
+
+            onChildChanged(propsRef, (snap) => {
+                const id = snap.key;
+                const val = snap.val();
+                if (networkProps[id] && id !== grabbedId) {
+                    networkProps[id].body.position.set(val.x, val.y, val.z);
+                    networkProps[id].body.quaternion.set(val.qx, val.qy, val.qz, val.qw);
+                    
+                    if (val.isFrozen && networkProps[id].body.type !== CANNON.Body.STATIC) {
+                        networkProps[id].body.type = CANNON.Body.STATIC;
+                        networkProps[id].body.mass = 0;
+                        networkProps[id].body.updateMassProperties();
+                        networkProps[id].body.velocity.set(0,0,0);
+                    } else if (!val.isFrozen && networkProps[id].body.type === CANNON.Body.STATIC) {
+                        networkProps[id].body.type = CANNON.Body.DYNAMIC;
+                        networkProps[id].body.mass = 12;
+                        networkProps[id].body.updateMassProperties();
+                        networkProps[id].body.wakeUp();
+                    }
+
+                    if(val.customColor) {
+                        networkProps[id].mesh.children[0].material.color.setHex(parseInt(val.customColor));
+                    }
+                }
+            });
+
+            onChildRemoved(propsRef, (snap) => {
+                const id = snap.key;
+                if (networkProps[id]) {
+                    if (grabbedId === id) releaseGrabbedProp();
+                    world.removeBody(networkProps[id].body);
+                    scene.remove(networkProps[id].mesh);
+                    delete networkProps[id];
+                }
+            });
+
+            onValue(envRef, (snap) => {
+                if (snap.exists() && snap.val().skybox) {
+                    scene.background.setHex(parseInt(snap.val().skybox));
+                }
+            });
+
+            onValue(adminRef, (snap) => {
+                if (snap.exists() && snap.val().action === "clear") {
+                    for (let k in networkProps) {
+                        if (k !== grabbedId) remove(ref(db, `rooms/${roomId}/props/${k}`));
+                    }
+                    set(adminRef, null);
+                }
+            });
+        }
+
+        function rebuildScoreboard() {
+            const content = document.getElementById('player-list-content');
+            content.innerHTML = `<div class="player-list-item"><div class="player-info"><div class="status-dot"></div><span>${username} (You)</span></div></div>`;
+            for (let k in networkPlayers) {
+                const tag = networkPlayers[k].root.children[2].element.innerText.replace("ADMIN", "");
+                content.innerHTML += `<div class="player-list-item"><div class="player-info"><div class="status-dot"></div><span>${tag}</span></div></div>`;
             }
+        }
 
-            // Keyboard State Events mapping vectors
-            window.addEventListener('keydown', (e) => {
-                activeKeys[e.key.toLowerCase()] = true;
-                if (e.key.toLowerCase() === 'q') {
-                    isConfiguring = true;
-                    document.getElementById('spawn-menu').style.display = 'block';
-                    controls.unlock();
-                }
-            });
-            window.addEventListener('keyup', (e) => {
-                activeKeys[e.key.toLowerCase()] = false;
-                if (e.key.toLowerCase() === 'q') {
-                    isConfiguring = false;
-                    document.getElementById('spawn-menu').style.display = 'none';
-                    if(!isMobileDevice) controls.lock();
-                }
-            });
+        function setupInputControls() {
+            if (!isMobileModeActive) {
+                document.body.addEventListener('click', () => {
+                    const menu = document.getElementById('spawn-menu');
+                    const config = document.getElementById('config-menu');
+                    if (gameActive && !controls.isLocked && menu.style.display !== 'block' && config.style.display !== 'block') {
+                        controls.lock();
+                    }
+                });
 
-            // Handle Mobile Layout Activation
-            if (isMobileDevice) {
+                window.addEventListener('keydown', (e) => {
+                    activeKeys[e.key.toLowerCase()] = true;
+                    const key = e.key.toLowerCase();
+                    
+                    if (key === 'q') {
+                        isConfiguring = true;
+                        document.getElementById('spawn-menu').style.display = 'block';
+                        controls.unlock();
+                    }
+                    if (key === 'j') isThirdPerson = !isThirdPerson;
+                    
+                    // Add "E" to immediately delete held item
+                    if (key === 'e' && grabbedId) {
+                        remove(ref(db, `rooms/${roomId}/props/${grabbedId}`));
+                        releaseGrabbedProp();
+                    }
+
+                    // Open Context menu on 'R' while holding object
+                    if (key === 'r' && grabbedId && gameActive) {
+                        isConfiguring = true;
+                        document.getElementById('spawn-menu').style.display = 'none';
+                        controls.unlock();
+                        document.getElementById('config-menu').style.display = 'block';
+                        
+                        const frzBtn = document.getElementById('config-gravity-btn');
+                        if (networkProps[grabbedId].body.type === CANNON.Body.STATIC) {
+                            frzBtn.innerText = "Unfreeze Physics";
+                        } else {
+                            frzBtn.innerText = "Freeze Physics";
+                        }
+                    }
+                });
+
+                window.addEventListener('keyup', (e) => {
+                    const key = e.key.toLowerCase();
+                    activeKeys[key] = false;
+                    if (key === 'q') {
+                        isConfiguring = false;
+                        document.getElementById('spawn-menu').style.display = 'none';
+                        if(!isConfiguring && document.getElementById('config-menu').style.display !== 'block') controls.lock();
+                    }
+                });
+
+                window.addEventListener('mousedown', (e) => {
+                    if (!controls.isLocked) return;
+                    if (e.button === 0) handleSpawnAction();
+                    if (e.button === 2) attemptGrab();
+                });
+
+                window.addEventListener('mouseup', (e) => {
+                    if (e.button === 2) {
+                        if (document.getElementById('config-menu').style.display === 'block') {
+                            document.getElementById('config-menu').style.display = 'none';
+                            isConfiguring = false;
+                            controls.lock();
+                        }
+                        releaseGrabbedProp();
+                    }
+                });
+
+                window.addEventListener('wheel', (e) => {
+                    if (grabbedId && controls.isLocked) {
+                        grabDistance -= e.deltaY * 0.005;
+                        grabDistance = Math.max(2, Math.min(25, grabDistance));
+                    }
+                });
+
+            } else {
+                // Mobile initialization
                 document.getElementById('mobile-ui-layer').style.display = 'block';
                 document.getElementById('move-joystick').style.display = 'block';
                 document.getElementById('look-joystick').style.display = 'block';
@@ -385,63 +649,188 @@
                     isConfiguring = !isConfiguring;
                     document.getElementById('spawn-menu').style.display = isConfiguring ? 'block' : 'none';
                 });
-
                 document.getElementById('mobile-cam-btn').addEventListener('touchstart', (e) => {
                     e.preventDefault();
                     isThirdPerson = !isThirdPerson;
                 });
-
                 document.getElementById('mobile-jump-btn').addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    if (Math.abs(playerBody.velocity.y) < 0.05) playerBody.velocity.y = 8.5;
+                    if (Math.abs(playerBody.velocity.y) < 0.1) playerBody.velocity.y = 8.5;
+                });
+                
+                const grabBtn = document.getElementById('mobile-grab-btn');
+                grabBtn.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if (grabbedId) {
+                        releaseGrabbedProp();
+                        grabBtn.style.background = "rgba(42, 103, 188, 0.65)";
+                    } else {
+                        attemptGrab();
+                        if (grabbedId) grabBtn.style.background = "rgba(219, 140, 32, 0.85)";
+                    }
                 });
 
-                const fireBtn = document.getElementById('mobile-fire-btn');
-                fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleSpawnAction(); });
-
-                setupVirtualStick('move-joystick', (x, y) => {
-                    touchInputX = x;
-                    touchInputZ = -y;
+                document.getElementById('mobile-fire-btn').addEventListener('touchstart', (e) => { 
+                    e.preventDefault(); 
+                    if(grabbedId) {
+                        // On mobile, let's use the Fire button to delete while holding
+                        remove(ref(db, `rooms/${roomId}/props/${grabbedId}`));
+                        releaseGrabbedProp();
+                        grabBtn.style.background = "rgba(42, 103, 188, 0.65)";
+                    } else {
+                        handleSpawnAction(); 
+                    }
                 });
 
+                setupVirtualStick('move-joystick', (x, y) => { touchInputX = x; touchInputZ = -y; });
                 setupVirtualStick('look-joystick', (x, y) => {
                     mobileYawAngle -= x * 0.04;
                     mobilePitchAngle = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, mobilePitchAngle - y * 0.04));
                     camera.rotation.set(mobilePitchAngle, mobileYawAngle, 0, 'YXZ');
                 });
-            } else {
-                window.addEventListener('click', (e) => { if(controls.isLocked) handleSpawnAction(); });
             }
 
-            animate();
+            // UI Context Logic config binds
+            document.getElementById('config-color-picker').addEventListener('input', (e) => {
+                if (grabbedId) {
+                    const hexColor = "0x" + e.target.value.substring(1);
+                    update(ref(db, `rooms/${roomId}/props/${grabbedId}`), { customColor: hexColor });
+                }
+            });
+            document.getElementById('config-gravity-btn').addEventListener('click', () => {
+                if (grabbedId) {
+                    const currentlyStatic = networkProps[grabbedId].body.type === CANNON.Body.STATIC;
+                    update(ref(db, `rooms/${roomId}/props/${grabbedId}`), { isFrozen: !currentlyStatic });
+                    document.getElementById('config-gravity-btn').innerText = !currentlyStatic ? "Unfreeze Physics" : "Freeze Physics";
+                }
+            });
+        }
+
+        function attemptGrab() {
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+            const meshes = Object.values(networkProps).map(p => p.mesh);
+            const intersects = raycaster.intersectObjects(meshes, true);
+
+            if (intersects.length > 0) {
+                let targetMesh = intersects[0].object;
+                while(targetMesh.parent && targetMesh.parent.name === "prop") targetMesh = targetMesh.parent;
+                
+                if(targetMesh.userData.propId) {
+                    grabbedId = targetMesh.userData.propId;
+                    grabDistance = intersects[0].distance;
+                    const body = networkProps[grabbedId].body;
+                    body.wakeUp();
+
+                    const localPivot = body.pointToLocalFrame(new CANNON.Vec3(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z));
+                    dummyGrabBody.position.copy(intersects[0].point);
+                    grabConstraint = new CANNON.PointToPointConstraint(body, localPivot, dummyGrabBody, new CANNON.Vec3(0, 0, 0), 1500);
+                    world.addConstraint(grabConstraint);
+                    
+                    // Temporarily unfreeze to move
+                    if (body.type === CANNON.Body.STATIC) {
+                        update(ref(db, `rooms/${roomId}/props/${grabbedId}`), { isFrozen: false });
+                    }
+                }
+            }
         }
 
         function handleSpawnAction() {
-            // Build dynamic physical props
-            let geom = new THREE.BoxGeometry(1, 1, 1);
-            let shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
+            const now = performance.now();
+            if (now - lastSpawnTime < SPAWN_COOLDOWN_MS) return;
+            lastSpawnTime = now;
 
-            if (window.currentSelectedPropType === 'sphere') {
-                geom = new THREE.SphereGeometry(0.6, 16, 16);
-                shape = new CANNON.Sphere(0.6);
-            } else if (window.currentSelectedPropType === 'cylinder') {
-                geom = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 16);
-                shape = new CANNON.Cylinder(0.4, 0.4, 1.2, 16);
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            
+            const spawnDistance = 4.5;
+            const targetPos = new THREE.Vector3(0,0,-spawnDistance).applyQuaternion(camera.quaternion).add(camera.position);
+
+            const key = "prop_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+            set(ref(db, `rooms/${roomId}/props/${key}`), {
+                type: window.currentSelectedPropType,
+                x: targetPos.x, y: targetPos.y, z: targetPos.z,
+                qx: 0, qy: 0, qz: 0, qw: 1,
+                isFrozen: false
+            });
+        }
+
+        function releaseGrabbedProp() {
+            if (!grabbedId) return;
+            if (grabConstraint) {
+                world.removeConstraint(grabConstraint);
+                grabConstraint = null;
             }
+            grabbedId = null;
+        }
 
-            const mesh = new THREE.Mesh(geom, new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
-            const body = new CANNON.Body({ mass: 5, shape: shape });
+        function getPropResource(type) {
+            let geo, shape;
+            switch (type) {
+                case 'sphere':
+                    geo = new THREE.SphereGeometry(0.7, 20, 20); shape = new CANNON.Sphere(0.7); break;
+                case 'cylinder':
+                    geo = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 12); shape = new CANNON.Cylinder(0.5, 0.5, 1.5, 12); break;
+                case 'cone':
+                    geo = new THREE.ConeGeometry(0.6, 1.4, 16); shape = new CANNON.Cylinder(0.01, 0.6, 1.4, 12); break;
+                case 'torus':
+                    geo = new THREE.TorusGeometry(0.5, 0.2, 8, 24); shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.25)); break;
+                case 'capsule':
+                    geo = new THREE.CapsuleGeometry(0.4, 1.0, 4, 16); shape = new CANNON.Cylinder(0.4, 0.4, 1.8, 12); break;
+                case 'microwave':
+                    geo = new THREE.BoxGeometry(1.2, 0.8, 0.9); shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.4, 0.45)); break;
+                case 'chair':
+                    geo = new THREE.BoxGeometry(0.8, 1.4, 0.8); shape = new CANNON.Box(new CANNON.Vec3(0.4, 0.7, 0.4)); break;
+                case 'table':
+                    geo = new THREE.BoxGeometry(2.2, 1.1, 1.4); shape = new CANNON.Box(new CANNON.Vec3(1.1, 0.55, 0.7)); break;
+                case 'cube':
+                default:
+                    geo = new THREE.BoxGeometry(1.2, 1.2, 1.2); shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.6)); break;
+            }
+            return { geo, shape };
+        }
 
-            // Raycast vector projecting forwards out from camera orientation matrices
-            const spawnPos = new THREE.Vector3(0, 0, -3).applyQuaternion(camera.quaternion).add(camera.position);
-            mesh.position.copy(spawnPos);
-            body.position.copy(spawnPos);
+        function createPropMeshInstance(type, customColor) {
+            const mat = new THREE.MeshStandardMaterial({ color: customColor || 0xcccccc, roughness: 0.5 });
+            if (!customColor) {
+                if (type === 'microwave') mat.color.setHex(0x222222);
+                if (type === 'chair') mat.color.setHex(0x50301a);
+                if (type === 'table') mat.color.setHex(0x4a90e2);
+            }
+            const { geo } = getPropResource(type);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            return mesh;
+        }
 
-            scene.add(mesh);
-            world.addBody(body);
+        function createAvatarGroup(colorHex, nameStr, isPlayerAdmin) {
+            const root = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: parseInt(colorHex), roughness: 0.4 });
+            
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.0, 10), mat);
+            torso.position.y = 0.5;
+            root.add(torso);
 
-            const id = Math.random().toString(36).substring(2, 7);
-            networkProps[id] = { mesh, body };
+            const headGroup = new THREE.Group();
+            headGroup.position.y = 1.2;
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 14), mat);
+            headGroup.add(head);
+            
+            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.12, 0.2), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff }));
+            visor.position.set(0, 0.05, 0.25);
+            headGroup.add(visor);
+            root.add(headGroup);
+
+            const div = document.createElement('div');
+            div.className = 'username-tag';
+            div.innerText = nameStr;
+            if (isPlayerAdmin) div.innerHTML += `<span class="admin-tag">ADMIN</span>`;
+            
+            const label = new CSS2DObject(div);
+            label.position.set(0, 1.8, 0);
+            root.add(label);
+
+            return { root, headGroup };
         }
 
         function setupVirtualStick(elementId, movementCallback) {
@@ -489,65 +878,102 @@
             frame.addEventListener('touchcancel', clear);
         }
 
+        const clock = new THREE.Clock();
+
         function animate() {
             requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.1);
 
             if (gameActive) {
-                world.step(1 / 60);
+                world.step(dt);
 
-                let driveX = 0, driveZ = 0;
-                if (!isMobileDevice) {
-                    if (activeKeys['w']) driveZ += 1;
-                    if (activeKeys['s']) driveZ -= 1;
-                    if (activeKeys['a']) driveX -= 1;
-                    if (activeKeys['d']) driveX += 1;
+                let yaw = 0, pitch = 0;
+                if (!isMobileModeActive && controls.isLocked) {
+                    yaw = camera.rotation.y;
+                    pitch = camera.rotation.x;
+                } else if (isMobileModeActive) {
+                    yaw = mobileYawAngle;
+                    pitch = mobilePitchAngle;
+                }
+
+                // Update grabbed physics entity
+                if (grabbedId && networkProps[grabbedId]) {
+                    const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+                    const holdPos = camera.position.clone().add(dir.multiplyScalar(grabDistance));
+                    dummyGrabBody.position.copy(holdPos);
+                }
+
+                // Movement kinematics
+                let inputX = 0, inputZ = 0;
+                if (!isMobileModeActive) {
+                    if (activeKeys['w']) inputZ = 1;
+                    if (activeKeys['s']) inputZ = -1;
+                    if (activeKeys['a']) inputX = -1;
+                    if (activeKeys['d']) inputX = 1;
                 } else {
-                    driveX = touchInputX;
-                    driveZ = touchInputZ;
+                    inputX = touchInputX;
+                    inputZ = touchInputZ;
                 }
 
-                if (controls.isLocked || isMobileDevice) {
-                    const camTarget = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-                    camTarget.y = 0; camTarget.normalize();
-                    const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize();
+                playerBody.useGravity = true;
+                const camTarget = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+                camTarget.y = 0; camTarget.normalize();
+                const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize();
 
-                    const moveVector = new THREE.Vector3();
-                    moveVector.addScaledVector(camTarget, driveZ);
-                    moveVector.addScaledVector(camRight, driveX);
-                    if (!isMobileDevice && moveVector.lengthSq() > 0) moveVector.normalize();
+                const moveVector = new THREE.Vector3();
+                moveVector.addScaledVector(camTarget, inputZ);
+                moveVector.addScaledVector(camRight, inputX);
+                if (moveVector.lengthSq() > 0.01) moveVector.normalize();
 
-                    playerBody.velocity.x = moveVector.x * 7;
-                    playerBody.velocity.z = moveVector.z * 7;
-                }
+                playerBody.velocity.x = moveVector.x * 8.0;
+                playerBody.velocity.z = moveVector.z * 8.0;
 
-                // Jump update handling loop configurations
-                if (activeKeys[' '] && Math.abs(playerBody.velocity.y) < 0.05) {
-                    playerBody.velocity.y = 8.5;
-                }
-
-                // Camera positioning attachment matching perspective matrices
+                // View matrix attachments
                 if (isThirdPerson) {
-                    const offset = new THREE.Vector3(0, 1.5, 4).applyQuaternion(camera.quaternion);
-                    camera.position.copy(playerBody.position).add(offset);
+                    const targetOffset = new THREE.Vector3(0, 1.2, 4.5);
+                    targetOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                    camera.position.copy(playerBody.position).add(targetOffset);
+                    if (!isMobileModeActive) camera.lookAt(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
                 } else {
                     camera.position.set(playerBody.position.x, playerBody.position.y + 0.6, playerBody.position.z);
                 }
 
-                // Render loop structural transforms matrix sync updates
-                for (let k in networkProps) {
+                // Network telemetry broadcast
+                if (!isMobileModeActive ? controls.isLocked : true) {
+                    set(playerRef, {
+                        name: username, color: avatarColor, isAdminStatus: isAdmin,
+                        x: playerBody.position.x, y: playerBody.position.y, z: playerBody.position.z,
+                        rotationY: yaw, headPitch: pitch
+                    });
+                }
+            }
+
+            // Sync visual props
+            for (let k in networkProps) {
+                if (k !== grabbedId && !networkProps[k].isFrozen) {
                     networkProps[k].mesh.position.copy(networkProps[k].body.position);
                     networkProps[k].mesh.quaternion.copy(networkProps[k].body.quaternion);
+                } else if (k === grabbedId) {
+                    networkProps[k].mesh.position.copy(networkProps[k].body.position);
+                    networkProps[k].mesh.quaternion.copy(networkProps[k].body.quaternion);
+                    
+                    if (gameActive && Math.random() < 0.25) {
+                        update(ref(db, `rooms/${roomId}/props/${k}`), {
+                            x: networkProps[k].body.position.x,
+                            y: networkProps[k].body.position.y,
+                            z: networkProps[k].body.position.z,
+                            qx: networkProps[k].body.quaternion.x,
+                            qy: networkProps[k].body.quaternion.y,
+                            qz: networkProps[k].body.quaternion.z,
+                            qw: networkProps[k].body.quaternion.w
+                        });
+                    }
                 }
-
-                renderer.render(scene, camera);
             }
-        }
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
     </script>
 </body>
 </html>
