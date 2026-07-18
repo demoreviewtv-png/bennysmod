@@ -432,12 +432,14 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
         import { getDatabase, ref, set, push, onValue, onChildAdded, onChildChanged, onChildRemoved, remove, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        
+        // Correctly Import Three.js controls & DOM text renderers as ES modules
+        import { PointerLockControls } from "https://unpkg.com/three@0.128.0/examples/jsm/controls/PointerLockControls.js";
+        import { CSS2DRenderer, CSS2DObject } from "https://unpkg.com/three@0.128.0/examples/jsm/renderers/CSS2DRenderer.js";
 
         // Global Variable Fallbacks
         window.kickPlayer = function(targetName) {
@@ -1131,7 +1133,6 @@
                     const spawnPos = new THREE.Vector3();
                     raycaster.ray.at(spawnDist, spawnPos);
 
-                    // FIXED: Replaced standard object method pattern propsRef.push() with Firebase modular standalone push(propsRef)
                     const newPropRef = push(propsRef); 
                     const defaultColorStr = document.getElementById('avatar-input').value;
                     const propHexColor = parseInt(defaultColorStr.replace("#", "0x"));
@@ -1285,7 +1286,6 @@
                     playerBody.position.z += flyVector.z * 0.35;
                     playerBody.velocity.set(0, 0, 0);
                 } else {
-                    // Traditional standard character kinematics controller engine
                     let inputZ = Number(activeKeys['w']) - Number(activeKeys['s']);
                     let inputX = Number(activeKeys['a']) - Number(activeKeys['d']);
 
