@@ -1272,7 +1272,7 @@
                     if(playerRef) update(playerRef, { afk: true });
                 }
 
-                world.fixedStep(1 / 60, delta);
+                world.step(1 / 60);
 
                 // Sync localized physics coordinates to meshes
                 Object.keys(props).forEach(id => {
