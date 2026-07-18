@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Benny's Gmod Sandbox</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benny's Mod Sandbox</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; user-select: none; touch-action: none; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #111; user-select: none; }
         
         #crosshair {
             position: absolute; top: 50%; left: 50%;
-            width: 8px; height: 8px;
-            background: white; border-radius: 50%;
+            width: 10px; height: 10px;
+            border: 2px solid white; border-radius: 50%;
             transform: translate(-50%, -50%);
             pointer-events: none; mix-blend-mode: difference;
             z-index: 10; display: none;
@@ -19,36 +19,40 @@
         /* START SCREEN MENU */
         #start-screen {
             position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: radial-gradient(circle, #24243e, #0f0c1b);
-            display: flex; gap: 30px; align-items: center; justify-content: center;
-            z-index: 100; color: white; flex-wrap: wrap; overflow-y: auto; box-sizing: border-box; padding: 20px;
+            background: radial-gradient(circle, #1e1e38, #0a0814);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100; color: white; gap: 10px;
+        }
+        .menu-container {
+            display: flex; gap: 20px; max-width: 700px; width: 90%;
         }
         .menu-box {
-            background: rgba(0,0,0,0.8); padding: 30px; border-radius: 12px;
-            border: 1px solid #444; width: 320px; display: flex; flex-direction: column; gap: 15px;
+            background: rgba(0,0,0,0.75); padding: 25px; border-radius: 12px;
+            border: 1px solid #444; flex: 1; display: flex; flex-direction: column; gap: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
         .menu-box input, .menu-box select, .menu-box button {
-            padding: 12px; border-radius: 6px; border: none; font-size: 16px;
+            padding: 10px; border-radius: 6px; border: none; font-size: 15px;
         }
         .menu-box input, .menu-box select { background: #222; color: white; border: 1px solid #555; }
-        .menu-box button { background: #21a03c; color: white; font-weight: bold; cursor: pointer; }
+        .menu-box button { background: #21a03c; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .menu-box button:hover { background: #2cbd4b; }
 
-        /* SERVER LIST CONTAINER */
-        .server-box {
-            background: rgba(0,0,0,0.8); padding: 30px; border-radius: 12px;
-            border: 1px solid #444; width: 340px; height: 350px; display: flex; flex-direction: column; gap: 15px;
+        /* SERVER LIST */
+        .server-list-container {
+            background: rgba(0,0,0,0.75); padding: 25px; border-radius: 12px;
+            border: 1px solid #444; width: 280px; display: flex; flex-direction: column;
         }
         .server-list {
-            flex: 1; overflow-y: auto; background: #151515; border: 1px solid #333; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+            flex: 1; min-height: 150px; background: #1a1a1a; border-radius: 6px;
+            border: 1px solid #333; overflow-y: auto; padding: 5px; margin-top: 8px;
         }
         .server-item {
-            background: #252530; border: 1px solid #444; border-radius: 4px; padding: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: 0.2s;
+            padding: 8px; background: #2a2a2a; margin-bottom: 5px; border-radius: 4px;
+            cursor: pointer; display: flex; justify-content: space-between; font-size: 13px;
+            border-left: 3px solid #2a67bc; transition: 0.2s;
         }
-        .server-item:hover { background: #353545; border-color: #2a67bc; }
-        .server-name { font-weight: bold; font-size: 14px; color: #fff; }
-        .server-count { font-size: 12px; color: #aaa; background: #111; padding: 2px 6px; border-radius: 10px; }
-        .no-servers { text-align: center; color: #666; font-size: 14px; margin-top: 40px; }
+        .server-item:hover { background: #3a3a3a; border-left-color: #21a03c; }
 
         /* ERROR REPORTING SCREEN */
         #error-screen {
@@ -62,37 +66,33 @@
         #spawn-menu {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 90%; max-width: 580px; background: rgba(20, 20, 20, 0.95);
-            border: 2px solid #555; border-radius: 8px;
+            width: 580px; background: rgba(15, 15, 15, 0.96);
+            border: 2px solid #666; border-radius: 8px;
             padding: 20px; color: white; z-index: 20;
-            display: none; box-shadow: 0 0 20px rgba(0,0,0,0.7); box-sizing: border-box;
+            display: none; box-shadow: 0 0 30px rgba(0,0,0,0.8);
         }
-        #spawn-menu h3 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center;}
+        #spawn-menu h3 { margin-top: 0; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center; color: #2a67bc;}
         .menu-section { margin-bottom: 15px; }
+        .menu-section h4 { margin: 5px 0; font-size: 14px; color: #aaa; }
         
-        .tabs { display: flex; gap: 5px; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 8px; overflow-x: auto; }
-        .tab-btn { background: #333; color: #ccc; border: none; padding: 6px 12px; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 13px; white-space: nowrap; }
-        .tab-btn.active { background: #2a67bc; color: white; }
-
-        .grid { display: none; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .grid.active { display: grid; }
-        @media(max-width: 480px) { .grid.active { grid-template-columns: repeat(2, 1fr); } }
-        
-        .spawn-btn { padding: 10px; background: #2a2a35; color: white; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase; text-align: center; }
-        .spawn-btn:hover { background: #3a3a45; }
-        .spawn-btn.active { background: #21a03c; border-color: #2cbd4b; }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .spawn-btn, .tool-btn { padding: 10px; background: #2a2a2a; color: #ccc; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; text-transform: uppercase; transition: 0.2s; }
+        .spawn-btn:hover, .tool-btn:hover { background: #3a3a3a; color: white; }
+        .spawn-btn.active, .tool-btn.active { background: #2a67bc; color: white; border-color: #4a87dc; }
+        .tool-btn.active { background: #d76e15; border-color: #ff943d; }
         
         .admin-btn { padding: 10px; background: #b83232; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
         .admin-btn:hover { background: #d94141; }
-        .flex-row { display: flex; gap: 10px; flex-wrap: wrap; }
-        .flex-row select { flex: 1; min-width: 120px; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;}
+        .flex-row { display: flex; gap: 10px; }
+        .flex-row div { flex: 1; }
+        .flex-row select { width: 100%; padding: 8px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;}
 
         #admin-panel { display: none; border-top: 1px solid #444; margin-top: 15px; padding-top: 10px; }
 
         /* SCOREBOARD / PLAYER LIST */
         #player-list-panel {
             position: absolute; top: 20px; right: 20px;
-            width: 220px; background: rgba(0,0,0,0.7);
+            width: 240px; background: rgba(0,0,0,0.8);
             border: 1px solid #444; border-radius: 6px;
             padding: 10px; color: white; z-index: 15; display: none;
         }
@@ -100,47 +100,29 @@
         .player-list-item { font-size: 13px; margin: 6px 0; display: flex; align-items: center; justify-content: space-between; }
         .player-info { display: flex; align-items: center; gap: 6px; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .ban-action { font-size: 10px; background: #b83232; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; display: none; }
+        .afk-tag { font-size: 10px; background: #ff943d; color: black; font-weight: bold; padding: 1px 4px; border-radius: 3px; margin-left: 5px; }
 
         .username-tag {
-            color: white; background: rgba(0,0,0,0.6);
+            color: white; background: rgba(0,0,0,0.75);
             padding: 2px 8px; border-radius: 4px; font-weight: bold;
-            font-size: 14px; pointer-events: none; white-space: nowrap;
-            border: 1px solid rgba(255,255,255,0.2);
+            font-size: 13px; pointer-events: none; white-space: nowrap;
+            border: 1px solid rgba(255,255,255,0.2); text-align: center;
         }
-        .admin-tag { color: #ff3333; font-size: 11px; font-weight: bold; display: block; text-align: center; margin-top: 1px;}
+        .admin-tag { color: #ff3333; font-size: 10px; font-weight: bold; display: block; margin-top: 1px;}
+
+        #hud-tool {
+            position: absolute; bottom: 20px; right: 20px;
+            background: rgba(0, 0, 0, 0.75); color: #ff943d; padding: 10px 18px;
+            border-radius: 6px; font-weight: bold; border: 1px solid #ff943d;
+            font-size: 14px; text-transform: uppercase; letter-spacing: 1px; display: none; z-index: 15;
+        }
 
         #instructions {
             position: absolute; bottom: 20px; left: 20px;
-            color: white; background: rgba(0,0,0,0.7);
+            color: white; background: rgba(0,0,0,0.75);
             padding: 12px; border-radius: 5px; pointer-events: none; font-size: 13px; display: none;
-        }
-
-        #screenshare-panel { margin-top: 10px; padding-top: 10px; border-top: 1px solid #444; }
-        .share-btn { background: #2a67bc; color: white; font-weight: bold; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; width: 100%; }
-        .share-btn:hover { background: #357ae8; }
-
-        /* MOBILE OVERLAY INTERFACE CONTROLS */
-        #mobile-controls {
-            display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 30;
-        }
-        .joystick-zone {
-            position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px;
-            background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; pointer-events: auto;
-        }
-        .joystick-knob {
-            position: absolute; top: 35px; left: 35px; width: 50px; height: 50px;
-            background: rgba(255,255,255,0.5); border-radius: 50%; transition: transform 0.05s linear;
-        }
-        .mobile-action-container {
-            position: absolute; bottom: 40px; right: 40px; display: flex; flex-direction: column; gap: 15px; pointer-events: auto;
-        }
-        .m-btn {
-            width: 65px; height: 65px; background: rgba(0, 0, 0, 0.6); border: 2px solid #888; color: white;
-            border-radius: 50%; font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.4); active-background: #444;
-        }
-        #mobile-look-pad {
-            position: absolute; top: 0; right: 0; width: 60%; height: 100%; pointer-events: auto; z-index: 5;
+            line-height: 1.4; border: 1px solid #444;
         }
     </style>
 </head>
@@ -150,85 +132,68 @@
         <div class="error-box">
             <h2 style="color: #ff4444; margin-top: 0;">Game Error Encountered</h2>
             <p id="error-text">No errors detected yet.</p>
+            <p style="font-size: 12px; color: #aaa; margin-bottom: 0;">Note: Run via a local web server (like VS Code Live Server) to bypass web browser CORS rules.</p>
         </div>
     </div>
 
     <div id="start-screen">
-        <div>
-            <h2 style="text-align: center; margin-bottom: 20px;">Benny's Gmod Sandbox</h2>
-            <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
-                <div class="menu-box">
-                    <label>Username</label>
-                    <input type="text" id="username-input">
-                    
-                    <label>Avatar Model Variant</label>
-                    <select id="avatar-input">
-                        <option value="0xff3333">Red Android</option>
-                        <option value="0x33ff33">Green Cyber-Suit</option>
-                        <option value="0x3333ff">Blue Guardian</option>
-                    </select>
+        <h2>Benny's Mod Sandbox</h2>
+        <div class="menu-container">
+            <div class="menu-box">
+                <label>Username</label>
+                <input type="text" id="username-input">
+                
+                <label>Avatar Model Variant</label>
+                <select id="avatar-input">
+                    <option value="0xff3333">Red Android</option>
+                    <option value="0x33ff33">Green Cyber-Suit</option>
+                    <option value="0x3333ff">Blue Guardian</option>
+                    <option value="0xe0a800">Gold Mech</option>
+                </select>
 
-                    <label>Private Server Room ID</label>
-                    <input type="text" id="room-input" value="sandbox-1">
-                    
-                    <button id="start-btn">LAUNCH GAME</button>
-                </div>
+                <label>Private Server Room ID</label>
+                <input type="text" id="room-input" value="sandbox-1">
+                
+                <button id="start-btn">LAUNCH GAME</button>
+            </div>
 
-                <div class="server-box">
-                    <label style="font-weight: bold; border-bottom: 1px solid #444; padding-bottom: 5px;">Active Server Rooms</label>
-                    <div id="server-list-container" class="server-list">
-                        <div class="no-servers">Scanning network...</div>
-                    </div>
+            <div class="server-list-container">
+                <label style="font-weight: bold;">Active Rooms List</label>
+                <div class="server-list" id="server-list-content">
+                    <div style="color: #666; font-size: 12px; padding: 10px; text-align: center;">Scanning for active servers...</div>
                 </div>
             </div>
         </div>
     </div>
 
     <div id="crosshair"></div>
+    <div id="hud-tool">Tool: Physgun / Spawn</div>
 
     <div id="player-list-panel">
         <h4>Players Online</h4>
         <div id="player-list-content"></div>
     </div>
 
-    <div id="mobile-controls">
-        <div id="mobile-look-pad"></div>
-        <div class="joystick-zone" id="touch-joystick">
-            <div class="joystick-knob" id="touch-knob"></div>
-        </div>
-        <div class="mobile-action-container">
-            <div class="m-btn" id="m-btn-menu">MENU</div>
-            <div class="m-btn" id="m-btn-spawn">SPAWN</div>
-            <div class="m-btn" id="m-btn-grab">GRAB</div>
-            <div class="m-btn" id="m-btn-jump">JUMP</div>
-        </div>
-    </div>
-
     <div id="spawn-menu">
-        <h3>Gmod Spawn Menu</h3>
+        <h3>Sandbox Control Panel</h3>
         
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('shapes')">Basic Shapes</button>
-            <button class="tab-btn" onclick="switchTab('food')">Foods</button>
-            <button class="tab-btn" onclick="switchTab('furniture')">Props & Appliances</button>
+        <div class="menu-section">
+            <h4>Gmod Toolgun Modes</h4>
+            <div class="grid">
+                <button class="tool-btn active" onclick="selectTool('spawn', this)">Physgun / Spawn</button>
+                <button class="tool-btn" onclick="selectTool('color', this)">Color Tool</button>
+                <button class="tool-btn" onclick="selectTool('remover', this)">Remover Tool</button>
+                <button class="tool-btn" onclick="selectTool('ignite', this)">Ignite Tool</button>
+            </div>
         </div>
 
         <div class="menu-section">
-            <div id="shapes-grid" class="grid active">
+            <h4>Basic Geometric Props</h4>
+            <div class="grid">
                 <button class="spawn-btn active" onclick="selectProp('cube', this)">Cube</button>
                 <button class="spawn-btn" onclick="selectProp('sphere', this)">Sphere</button>
                 <button class="spawn-btn" onclick="selectProp('cylinder', this)">Cylinder</button>
                 <button class="spawn-btn" onclick="selectProp('torus', this)">Donut</button>
-            </div>
-            <div id="food-grid" class="grid">
-                <button class="spawn-btn" onclick="selectProp('apple', this)">🍎 Apple</button>
-                <button class="spawn-btn" onclick="selectProp('watermelon', this)">🍉 Watermelon</button>
-                <button class="spawn-btn" onclick="selectProp('banana', this)">🍌 Banana</button>
-            </div>
-            <div id="furniture-grid" class="grid">
-                <button class="spawn-btn" onclick="selectProp('microwave', this)">📟 Microwave</button>
-                <button class="spawn-btn" onclick="selectProp('chair', this)">🪑 Chair</button>
-                <button class="spawn-btn" onclick="selectProp('table', this)">🪵 Table</button>
             </div>
         </div>
 
@@ -254,11 +219,6 @@
             </div>
         </div>
 
-        <div id="screenshare-panel" class="menu-section">
-            <h4>Media Screenshare</h4>
-            <button id="start-share-btn" class="share-btn">Share My Screen to Theater</button>
-        </div>
-
         <div id="admin-panel" class="menu-section">
             <h4>Admin Utility Options</h4>
             <button class="admin-btn" id="clear-room-btn">CLEAR ALL PROPS</button>
@@ -267,23 +227,20 @@
 
     <div id="instructions">
         <strong>Controls:</strong><br>
-        • Click screen to lock cursor (WASD to move, Space to Jump)<br>
-        • Hold <strong>Q</strong> to open Spawn Menu & Options<br>
-        • Left-Click to spawn selected item<br>
-        • Right-Click & Hold to <strong>Physics Grab & Throw</strong><br>
+        • Click screen to capture look (WASD = Move, Space = Jump)<br>
+        • Hold <strong>Q</strong>: Open Spawn Menu & Change Tools<br>
+        • Left-Click: Use current active Toolgun / Spawn active Prop<br>
+        • Right-Click & Hold: <strong>Physgun Grab / Move Object (or AFK Player)</strong><br>
         • Press <strong>J</strong>: Toggle 1st / 3rd Person View<br>
-        • Press <strong>G</strong>: Toggle Fly Mode<br>
+        • Press <strong>G</strong>: Toggle Fly Mode (Space=Up, Shift=Down)<br>
         • Press <strong>F</strong>: Delete Held Object<br>
-        • Press <strong>Z</strong>: Freeze Object
+        • Press <strong>Z</strong>: Toggle Physics Freeze on pointed object<br>
+        • <strong>AFK Mode:</strong> Idle players turn into physics ragdoll props after 15s!
     </div>
 
     <script>
         window.addEventListener('error', function(e) {
             document.getElementById('error-text').innerText = e.message + "\n\nIn: " + e.filename + " (Line " + e.lineno + ")";
-            document.getElementById('error-screen').style.display = 'flex';
-        });
-        window.addEventListener('unhandledrejection', function(e) {
-            document.getElementById('error-text').innerText = "Database Connection Error:\n" + e.reason.message;
             document.getElementById('error-screen').style.display = 'flex';
         });
     </script>
@@ -308,20 +265,7 @@
         import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
         import * as CANNON from 'cannon-es';
 
-        window.switchTab = function(tabName) {
-            document.querySelectorAll('.grid').forEach(g => g.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(tabName + '-grid').classList.add('active');
-            if(event) event.target.classList.add('active');
-        };
-
-        window.selectProp = function(type, element) {
-            document.querySelectorAll('.spawn-btn').forEach(b => b.classList.remove('active'));
-            element.classList.add('active');
-            window.currentSelectedPropType = type;
-        };
-        window.currentSelectedPropType = 'cube';
-
+        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyBmHx2iZL0UFgr_d0y0-ENIQQ6EF82XuIs",
             authDomain: "bennysmod.firebaseapp.com",
@@ -329,8 +273,7 @@
             projectId: "bennysmod",
             storageBucket: "bennysmod.firebasestorage.app",
             messagingSenderId: "739121709314",
-            appId: "1:739121709314:web:69323c2e9ebaab911c821b",
-            measurementId: "G-TB8EBLGN6X"
+            appId: "1:739121709314:web:69323c2e9ebaab911c821b"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -339,61 +282,42 @@
         let roomId, playerId, username, avatarColor;
         let playerRef, propsRef, envRef, adminRef, roomRef;
         let gameActive = false, isAdmin = false;
-
-        let lastSpawnTime = 0;
-        const SPAWN_COOLDOWN_MS = 300;
-
-        let videoElement = null;
-        let videoTexture = null;
-        let screenMesh = null;
-
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // AFK Variables
+        let lastInputTime = Date.now();
+        let isLocalAfk = false;
 
         const savedUsername = localStorage.getItem('bm_saved_username');
-        if (savedUsername) {
-            document.getElementById('username-input').value = savedUsername;
-        } else {
-            document.getElementById('username-input').value = "Player_" + Math.floor(100 + Math.random() * 900);
-        }
+        document.getElementById('username-input').value = savedUsername || "Builder_" + Math.floor(100 + Math.random() * 900);
 
-        // --- GLOBAL SERVER ROOM BROWSING ---
-        const roomsRef = ref(db, "rooms");
-        onValue(roomsRef, (snapshot) => {
-            const container = document.getElementById('server-list-container');
-            container.innerHTML = "";
+        // --- ROOM LIST LISTENER ---
+        onValue(ref(db, 'rooms'), (snapshot) => {
+            const serverContent = document.getElementById('server-list-content');
+            serverContent.innerHTML = "";
             if (!snapshot.exists()) {
-                container.innerHTML = `<div class="no-servers">No active servers.<br>Create one manually!</div>`;
+                serverContent.innerHTML = '<div style="color: #666; font-size: 12px; padding: 10px; text-align: center;">No active rooms. Type one to start!</div>';
                 return;
             }
-            let count = 0;
-            snapshot.forEach((child) => {
-                const rId = child.key;
-                const playersData = child.child("players").val();
-                if (playersData) {
-                    count++;
-                    const pCount = Object.keys(playersData).length;
-                    const item = document.createElement('div');
-                    item.className = "server-item";
-                    item.innerHTML = `
-                        <span class="server-name">${rId}</span>
-                        <span class="server-count">${pCount} online</span>
-                    `;
-                    item.addEventListener('click', () => {
-                        document.getElementById('room-input').value = rId;
-                        document.getElementById('start-btn').click();
-                    });
-                    container.appendChild(item);
-                }
+            const roomsData = snapshot.val();
+            Object.keys(roomsData).forEach(rId => {
+                const pCount = roomsData[rId].players ? Object.keys(roomsData[rId].players).length : 0;
+                const propCount = roomsData[rId].props ? Object.keys(roomsData[rId].props).length : 0;
+                
+                const item = document.createElement('div');
+                item.className = 'server-item';
+                item.innerHTML = `<span>📂 <b>${rId}</b></span> <span>👥 ${pCount} | 📦 ${propCount}</span>`;
+                item.addEventListener('click', () => {
+                    document.getElementById('room-input').value = rId;
+                });
+                serverContent.appendChild(item);
             });
-            if (count === 0) {
-                container.innerHTML = `<div class="no-servers">No active servers.<br>Create one manually!</div>`;
-            }
         });
 
-        // --- THREE.JS SETUP ---
+        // --- THREE.JS & PHYSICS SETUP ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x1a1a24);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
@@ -406,733 +330,572 @@
         document.body.appendChild(labelRenderer.domElement);
 
         const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -22, 0) });
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(15, 40, 15);
+        dirLight.position.set(10, 30, 10);
         scene.add(dirLight);
 
-        // Ground Floor
-        const groundGeo = new THREE.BoxGeometry(160, 2, 160);
-        const groundMat = new THREE.MeshStandardMaterial({ color: 0x22222b, roughness: 0.8 });
-        const groundMesh = new THREE.Mesh(groundGeo, groundMat);
-        groundMesh.position.y = -1;
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x22222b });
+        const groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), groundMat);
+        groundMesh.rotation.x = -Math.PI / 2;
         scene.add(groundMesh);
-
-        const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(80, 1, 80)) });
-        groundBody.position.set(0, -1, 0);
+        const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
         world.addBody(groundBody);
 
-        // Setup Player Phys Object
-        const playerBody = new CANNON.Body({
-            mass: 75,
-            shape: new CANNON.Cylinder(0.6, 0.6, 1.8, 16),
-            fixedRotation: true
-        });
-        playerBody.position.set(Math.random() * 10 - 5, 5, Math.random() * 10 - 5);
+        const playerPhysMat = new CANNON.Material("playerMaterial");
+        const groundPhysMat = new CANNON.Material("groundMaterial");
+        const propPhysMat = new CANNON.Material("propMaterial");
+        
+        world.addContactMaterial(new CANNON.ContactMaterial(playerPhysMat, groundPhysMat, { friction: 0.1, restitution: 0.0 }));
+        world.addContactMaterial(new CANNON.ContactMaterial(playerPhysMat, propPhysMat, { friction: 0.3, restitution: 0.1 }));
+        groundBody.material = groundPhysMat;
+
+        const playerRadius = 0.6, playerHeight = 1.8;
+        const playerBody = new CANNON.Body({ mass: 70, shape: new CANNON.Cylinder(playerRadius, playerRadius, playerHeight, 8), fixedRotation: true, material: playerPhysMat });
+        playerBody.position.set(Math.random() * 6 - 3, 3, Math.random() * 6 - 3);
         world.addBody(playerBody);
 
+        const localVisualGroup = new THREE.Group();
+        const localBodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: 0xff3333 }));
+        localBodyMesh.position.y = 0.6; localVisualGroup.add(localBodyMesh);
+        const localHeadMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+        localHeadMesh.position.y = 1.35; localVisualGroup.add(localHeadMesh);
+        const localVisorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+        localVisorMesh.position.set(0, 1.35, 0.25); localVisualGroup.add(localVisorMesh);
+        scene.add(localVisualGroup);
+        localVisualGroup.visible = false;
+
+        const beamMaterial = new THREE.LineBasicMaterial({ color: 0x3dff53, linewidth: 4 });
+        const beamGeometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+        const beamLine = new THREE.Line(beamGeometry, beamMaterial);
+        beamLine.visible = false;
+        scene.add(beamLine);
+
         const controls = new PointerLockControls(camera, renderer.domElement);
-        let thirdPerson = false;
+        const menu = document.getElementById('spawn-menu');
+
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
+        let flyUp = false, flyDown = false;
+
+        const raycaster = new THREE.Raycaster();
+        let grabbedObj = null; 
+        let grabDistance = 0;
+        let grabIsPlayerId = null;
+        
+        let isThirdPerson = false;
         let isFlying = false;
 
-        // Player configuration state tracking
+        let lastGrabbedPos = new CANNON.Vec3();
+        let grabbedVelocity = new CANNON.Vec3();
+        
+        const props = {};
         const networkPlayers = {};
-        const networkProps = {};
 
-        // Local input structures
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-        let mobileMoveX = 0, mobileMoveZ = 0;
-        let pitch = 0, yaw = 0;
+        let currentPropType = 'cube';
+        let currentToolMode = 'spawn'; // Options: spawn, color, remover, ignite
 
-        // Grab / Physics manipulation variables
-        let grabbedId = null;
-        let grabConstraint = null;
-        let grabDistance = 6;
-        const dummyGrabBody = new CANNON.Body({ mass: 0 });
-        dummyGrabBody.collisionFilterBlurring = true;
-        world.addBody(dummyGrabBody);
+        window.selectProp = function(type, element) {
+            currentPropType = type;
+            document.querySelectorAll('.spawn-btn').forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+        };
 
-        // Keyboard Actions Handler
-        if (!isMobile) {
-            document.body.addEventListener('click', () => {
-                if (gameActive && !controls.isLocked && document.getElementById('spawn-menu').style.display !== 'block') {
-                    controls.lock();
-                }
-            });
-        }
-
-        controls.addEventListener('lock', () => {
-            if(isMobile) return;
-            document.getElementById('crosshair').style.display = 'block';
-            document.getElementById('instructions').style.display = 'block';
-        });
-        controls.addEventListener('unlock', () => {
-            document.getElementById('crosshair').style.display = 'none';
-        });
-
-        window.addEventListener('keydown', (e) => {
-            if (!gameActive) return;
-            switch (e.code) {
-                case 'KeyW': moveForward = true; break;
-                case 'KeyS': moveBackward = true; break;
-                case 'KeyA': moveLeft = true; break;
-                case 'KeyD': moveRight = true; break;
-                case 'Space':
-                    if (isFlying) {
-                        playerBody.velocity.y = 8;
-                    } else {
-                        const start = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.95, playerBody.position.z);
-                        const end = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 1.2, playerBody.position.z);
-                        const raycastResult = new CANNON.RaycastResult();
-                        world.raycastClosest(start, end, {}, raycastResult);
-                        if (raycastResult.hasHit) playerBody.velocity.y = 9;
-                    }
-                    break;
-                case 'ShiftLeft':
-                    if (isFlying) playerBody.velocity.y = -8;
-                    break;
-                case 'KeyQ':
-                    document.getElementById('spawn-menu').style.display = 'block';
-                    controls.unlock();
-                    break;
-                case 'KeyJ':
-                    thirdPerson = !thirdPerson;
-                    break;
-                case 'KeyG':
-                    isFlying = !isFlying;
-                    playerBody.velocity.set(0,0,0);
-                    break;
-                case 'KeyF':
-                    if (grabbedId) {
-                        remove(ref(db, `rooms/${roomId}/props/${grabbedId}`));
-                        releaseGrabbedProp();
-                    }
-                    break;
-                case 'KeyZ':
-                    if (grabbedId) {
-                        update(ref(db, `rooms/${roomId}/props/${grabbedId}`), { isFrozen: true });
-                        releaseGrabbedProp();
-                    }
-                    break;
-            }
-        });
-
-        window.addEventListener('keyup', (e) => {
-            switch (e.code) {
-                case 'KeyW': moveForward = false; break;
-                case 'KeyS': moveBackward = false; break;
-                case 'KeyA': moveLeft = false; break;
-                case 'KeyD': moveRight = false; break;
-                case 'ShiftLeft': if (isFlying) playerBody.velocity.y = 0; break;
-                case 'Space': if (isFlying) playerBody.velocity.y = 0; break;
-                case 'KeyQ':
-                    document.getElementById('spawn-menu').style.display = 'none';
-                    if(!isMobile) controls.lock();
-                    break;
-            }
-        });
-
-        // Mouse click configurations
-        window.addEventListener('mousedown', (e) => {
-            if (!gameActive || !controls.isLocked || isMobile) return;
-            if (e.button === 0) {
-                fireSpawnPropAction();
-            } else if (e.button === 2) {
-                attemptGrabProp();
-            }
-        });
-
-        window.addEventListener('mouseup', (e) => {
-            if (e.button === 2 && grabbedId) {
-                releaseGrabbedProp();
-            }
-        });
-
-        // --- MOBILE INPUT TOUCH CONTROLS INTERFACING ---
-        if(isMobile) {
-            document.getElementById('mobile-controls').style.display = 'block';
-            document.getElementById('instructions').style.display = 'none';
-            document.getElementById('crosshair').style.display = 'block';
-
-            // Joystick movement processing
-            const joystickZone = document.getElementById('touch-joystick');
-            const joystickKnob = document.getElementById('touch-knob');
-            let joystickActive = false;
-            let joyStartX = 0, joyStartY = 0;
-
-            joystickZone.addEventListener('touchstart', (e) => {
-                joystickActive = true;
-                const t = e.touches[0];
-                joyStartX = t.clientX;
-                joyStartY = t.clientY;
-            });
-            window.addEventListener('touchmove', (e) => {
-                if(!joystickActive) return;
-                let activeTouch = null;
-                for(let i=0; i<e.touches.length; i++){
-                    if(e.touches[i].clientX < window.innerWidth / 2) {
-                        activeTouch = e.touches[i];
-                        break;
-                    }
-                }
-                if(!activeTouch) return;
-                let dx = activeTouch.clientX - joyStartX;
-                let dy = activeTouch.clientY - joyStartY;
-                const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 45);
-                if(dist > 0) {
-                    const angle = Math.atan2(dy, dx);
-                    dx = Math.cos(angle) * dist;
-                    dy = Math.sin(angle) * dist;
-                }
-                joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-                mobileMoveX = dx / 45;
-                mobileMoveZ = dy / 45;
-            });
-            const endJoystick = () => {
-                joystickActive = false;
-                joystickKnob.style.transform = 'translate(0px, 0px)';
-                mobileMoveX = 0;
-                mobileMoveZ = 0;
-            };
-            joystickZone.addEventListener('touchend', endJoystick);
-            joystickZone.addEventListener('touchcancel', endJoystick);
-
-            // Camera Lookpad Drag interaction setup
-            const lookPad = document.getElementById('mobile-look-pad');
-            let lookActive = false;
-            let lastLookX = 0, lastLookY = 0;
-
-            lookPad.addEventListener('touchstart', (e) => {
-                lookActive = true;
-                const t = e.targetTouches[0];
-                lastLookX = t.clientX;
-                lastLookY = t.clientY;
-            });
-            lookPad.addEventListener('touchmove', (e) => {
-                if(!lookActive) return;
-                const t = e.targetTouches[0];
-                const dx = t.clientX - lastLookX;
-                const dy = t.clientY - lastLookY;
-                lastLookX = t.clientX;
-                lastLookY = t.clientY;
-
-                yaw -= dx * 0.005;
-                pitch -= dy * 0.005;
-                pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, pitch));
-
-                camera.rotation.order = "YXZ";
-                camera.rotation.set(pitch, yaw, 0);
-            });
-            lookPad.addEventListener('touchend', () => { lookActive = false; });
-
-            // Action UI Triggers
-            document.getElementById('m-btn-menu').addEventListener('touchstart', () => {
-                const menu = document.getElementById('spawn-menu');
-                menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
-            });
-            document.getElementById('m-btn-spawn').addEventListener('touchstart', () => {
-                fireSpawnPropAction();
-            });
-            document.getElementById('m-btn-grab').addEventListener('touchstart', () => {
-                if(grabbedId) {
-                    releaseGrabbedProp();
-                    document.getElementById('m-btn-grab').style.background = "rgba(0,0,0,0.6)";
-                } else {
-                    attemptGrabProp();
-                    if(grabbedId) document.getElementById('m-btn-grab').style.background = "#e67e22";
-                }
-            });
-            document.getElementById('m-btn-jump').addEventListener('touchstart', () => {
-                if (isFlying) {
-                    playerBody.velocity.y = 8;
-                } else {
-                    playerBody.velocity.y = 9;
-                }
-            });
-        }
-
-        // Spawn items helper configuration engine
-        function fireSpawnPropAction() {
-            const now = performance.now();
-            if (now - lastSpawnTime < SPAWN_COOLDOWN_MS) return;
-            lastSpawnTime = now;
-
-            const raycaster = new THREE.Raycaster();
-            if(isMobile) {
-                raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-            } else {
-                raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-            }
-            const hits = raycaster.intersectObjects(scene.children, true);
-            const groundHit = hits.find(h => h.object === groundMesh || h.object.parent?.name === "prop");
-
-            if (groundHit && groundHit.distance < 45) {
-                const pKey = "prop_" + Date.now() + "_" + Math.floor(Math.random()*1000);
-                const pos = groundHit.point.clone().add(new THREE.Vector3(0, 1.2, 0));
-                set(ref(db, `rooms/${roomId}/props/${pKey}`), {
-                    type: window.currentSelectedPropType,
-                    x: pos.x, y: pos.y, z: pos.z,
-                    qx: 0, qy: 0, qz: 0, qw: 1,
-                    isFrozen: false
-                });
-            }
-        }
-
-        function attemptGrabProp() {
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-            const hits = raycaster.intersectObjects(scene.children, true);
+        window.selectTool = function(mode, element) {
+            currentToolMode = mode;
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            element.classList.add('active');
+            document.getElementById('hud-tool').innerText = "Tool: " + mode;
             
-            const targetPropMesh = hits.find(h => h.object.parent && h.object.parent.name === "prop");
-            if (targetPropMesh && targetPropMesh.distance < 15) {
-                const meshGroup = targetPropMesh.object.parent;
-                const pId = meshGroup.userData.propId;
-                if(networkProps[pId]) {
-                    grabbedId = pId;
-                    grabDistance = targetPropMesh.distance;
-                    const body = networkProps[pId].body;
-                    body.wakeUp();
-                    
-                    update(ref(db, `rooms/${roomId}/props/${grabbedId}`), { isFrozen: false });
+            if (mode === 'spawn') beamMaterial.color.setHex(0x3dff53);
+            if (mode === 'color') beamMaterial.color.setHex(0xe0a800);
+            if (mode === 'remover') beamMaterial.color.setHex(0xff3333);
+            if (mode === 'ignite') beamMaterial.color.setHex(0xff6600);
+        };
 
-                    const localHitPoint = body.pointToLocalFrame(new CANNON.Vec3(targetPropMesh.point.x, targetPropMesh.point.y, targetPropMesh.point.z));
-                    dummyGrabBody.position.copy(targetPropMesh.point);
-
-                    grabConstraint = new CANNON.PointToPointConstraint(body, localHitPoint, dummyGrabBody, new CANNON.Vec3(0,0,0), 1200);
-                    world.addConstraint(grabConstraint);
-                }
-            }
-        }
-
-        function releaseGrabbedProp() {
-            if (!grabbedId) return;
-            if (grabConstraint) {
-                world.removeConstraint(grabConstraint);
-                grabConstraint = null;
-            }
-            grabbedId = null;
-        }
-
-        // Creation generators for meshes and bounds
-        function generatePropResources(type) {
-            let geo, shape;
-            switch(type) {
-                case 'sphere':
-                    geo = new THREE.SphereGeometry(0.8, 24, 24);
-                    shape = new CANNON.Sphere(0.8);
-                    break;
-                case 'cylinder':
-                    geo = new THREE.CylinderGeometry(0.6, 0.6, 1.6, 16);
-                    shape = new CANNON.Cylinder(0.6, 0.6, 1.6, 16);
-                    break;
-                case 'torus':
-                    geo = new THREE.TorusGeometry(0.7, 0.3, 12, 24);
-                    shape = new CANNON.Sphere(1.0); // Simple proxy bounding collider box
-                    break;
-                case 'apple':
-                    geo = new THREE.SphereGeometry(0.4, 16, 16);
-                    shape = new CANNON.Sphere(0.4);
-                    break;
-                case 'watermelon':
-                    geo = new THREE.SphereGeometry(0.9, 16, 16);
-                    shape = new CANNON.Sphere(0.9);
-                    break;
-                case 'banana':
-                    geo = new THREE.CylinderGeometry(0.2, 0.2, 1.0, 8);
-                    shape = new CANNON.Cylinder(0.2, 0.2, 1.0, 8);
-                    break;
-                case 'microwave':
-                    geo = new THREE.BoxGeometry(1.4, 0.9, 1.0);
-                    shape = new CANNON.Box(new CANNON.Vec3(0.7, 0.45, 0.5));
-                    break;
-                case 'chair':
-                    geo = new THREE.BoxGeometry(1.0, 1.6, 1.0);
-                    shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.8, 0.5));
-                    break;
-                case 'table':
-                    geo = new THREE.BoxGeometry(2.4, 1.2, 1.6);
-                    shape = new CANNON.Box(new CANNON.Vec3(1.2, 0.6, 0.8));
-                    break;
-                case 'cube':
-                default:
-                    geo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-                    shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.6));
-                    break;
-            }
-            return { geo, shape };
-        }
-
-        function createLocalPropMesh(type, colorHex) {
-            const material = new THREE.MeshStandardMaterial({
-                color: colorHex || 0xdddddd,
-                roughness: 0.4,
-                metalness: 0.1
-            });
-            
-            // Custom asset color palettes override mapping properties
-            if (type === 'apple') material.color.setHex(0xcc2222);
-            if (type === 'watermelon') material.color.setHex(0x228b22);
-            if (type === 'banana') material.color.setHex(0xffe135);
-            if (type === 'microwave') material.color.setHex(0x333333);
-            if (type === 'chair') material.color.setHex(0x8b5a2b);
-            if (type === 'table') material.color.setHex(0xa0522d);
-
-            const { geo } = generatePropResources(type);
-            const mesh = new THREE.Mesh(geo, material);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-            return mesh;
-        }
-
-        // Multi-avatar structure creation engine
-        function createAvatarGroup(colorHex, nameStr, isPlayerAdmin) {
-            const root = new THREE.Group();
-            
-            const bodyMat = new THREE.MeshStandardMaterial({ color: parseInt(colorHex), roughness: 0.3 });
-            const jointMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 });
-            
-            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.0, 12), bodyMat);
-            torso.position.y = 0.5;
-            root.add(torso);
-
-            const headGroup = new THREE.Group();
-            headGroup.position.y = 1.2;
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), bodyMat);
-            headGroup.add(head);
-            
-            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.2), new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff }));
-            visor.position.set(0, 0.1, 0.28);
-            headGroup.add(visor);
-            root.add(headGroup);
-
-            const labelDiv = document.createElement('div');
-            labelDiv.className = 'username-tag';
-            labelDiv.innerText = nameStr;
-            if(isPlayerAdmin) {
-                labelDiv.innerHTML += `<span class="admin-tag">ADMIN</span>`;
-            }
-            const label = new CSS2DObject(labelDiv);
-            label.position.set(0, 1.9, 0);
-            root.add(label);
-
-            return { root, headGroup };
-        }
-
-        // --- LAUNCH GAME & CORE FLOW SYNCHRONIZATION ---
+        // --- START GAME ---
         document.getElementById('start-btn').addEventListener('click', () => {
-            username = document.getElementById('username-input').value.trim() || "Guest";
-            avatarColor = document.getElementById('avatar-input').value;
-            roomId = document.getElementById('room-input').value.trim() || "sandbox-1";
-            
+            username = document.getElementById('username-input').value.trim() || "Player";
+            avatarColor = parseInt(document.getElementById('avatar-input').value);
+            roomId = document.getElementById('room-input').value.trim() || "global";
+            playerId = Math.random().toString(36).substring(2, 9);
+
+            localBodyMesh.material.color.setHex(avatarColor);
             localStorage.setItem('bm_saved_username', username);
-            playerId = "usr_" + Math.floor(100000 + Math.random() * 900000);
-            
-            if (username.toLowerCase() === "benny" || username.toLowerCase() === "admin") {
-                isAdmin = true;
-                document.getElementById('admin-panel').style.display = 'block';
-            }
 
-            document.getElementById('start-screen').style.display = 'none';
-            gameActive = true;
-            
-            if(!isMobile) {
-                controls.lock();
-            }
-
-            // Real-time synchronization listeners init
             roomRef = ref(db, `rooms/${roomId}`);
             playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
             propsRef = ref(db, `rooms/${roomId}/props`);
             envRef = ref(db, `rooms/${roomId}/environment`);
-            adminRef = ref(db, `rooms/${roomId}/adminAction`);
+            adminRef = ref(db, `rooms/${roomId}/admin`);
 
-            // --- DISCONNECT HANDLE: CONVERT ACTIVE PLAYER BODY INTO A PHYSICS PROP ---
-            const playerPropKey = "player_abandoned_" + playerId;
-            const disconnectRef = ref(db, `rooms/${roomId}/props/${playerPropKey}`);
-            
-            // Check if there's already a leftover physics prop body from this player and reclaim/remove it
-            remove(disconnectRef);
-
-            // Set up onDisconnect state fallback structure to write this model down as a persistent interactive prop box object!
-            onDisconnect(disconnectRef).set({
-                type: 'cube',
-                x: playerBody.position.x,
-                y: playerBody.position.y,
-                z: playerBody.position.z,
-                qx: 0, qy: 0, qz: 0, qw: 1,
-                isFrozen: false,
-                customColor: avatarColor,
-                isPlayerBodyBackup: true,
-                backupName: username
-            });
-            
-            // Wipe the standard active player multiplayer runtime node entry upon disconnect
             onDisconnect(playerRef).remove();
-
-            // Notify initial active network registration hook
-            set(playerRef, {
-                name: username,
-                color: avatarColor,
-                isAdminStatus: isAdmin,
-                x: playerBody.position.x,
-                y: playerBody.position.y,
-                z: playerBody.position.z,
-                rotationY: 0,
-                headPitch: 0,
-                headYaw: 0,
-                isMovingState: false,
-                isFlyingState: false
-            });
-
-            // --- SYNC PLAYERS NODE ENTRIES LOOP ---
-            const playersNodeRef = ref(db, `rooms/${roomId}/players`);
-            onChildAdded(playersNodeRef, (snap) => {
-                if (snap.key === playerId) return;
-                const d = snap.val();
-                const avatar = createAvatarGroup(d.color, d.name, d.isAdminStatus);
-                scene.add(avatar.root);
-                networkPlayers[snap.key] = avatar;
-                rebuildScoreboardUI();
-            });
-            onChildChanged(playersNodeRef, (snap) => {
-                if (snap.key === playerId) return;
-                const d = snap.val();
-                const avatar = networkPlayers[snap.key];
-                if (avatar) {
-                    avatar.root.position.set(d.x, d.y - 0.9, d.z);
-                    avatar.root.rotation.y = d.rotationY || 0;
-                    avatar.headGroup.rotation.x = d.headPitch || 0;
-                    avatar.headGroup.rotation.y = d.headYaw || 0;
-                }
-            });
-            onChildRemoved(playersNodeRef, (snap) => {
-                if (networkPlayers[snap.key]) {
-                    scene.remove(networkPlayers[snap.key].root);
-                    delete networkPlayers[snap.key];
-                    rebuildScoreboardUI();
+            
+            onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
+                if (gameActive && snap.exists()) {
+                    if (!Object.keys(snap.val()).includes(playerId)) location.reload();
                 }
             });
 
-            // --- SYNC PROPS INFRASTRUCTURE LAYER ---
-            onChildAdded(propsRef, (snap) => {
-                const pId = snap.key;
-                const d = snap.val();
+            setupMultiplayerListeners();
 
-                // If this is a persistent backup prop matching our username/identity, swallow it and teleport us there!
-                if (d.isPlayerBodyBackup && d.backupName === username) {
-                    playerBody.position.set(d.x, d.y + 1, d.z);
-                    playerBody.velocity.set(0,0,0);
-                    remove(ref(db, `rooms/${roomId}/props/${pId}`));
-                    return;
-                }
-
-                const mesh = createLocalPropMesh(d.type, d.customColor ? parseInt(d.customColor) : null);
-                mesh.name = "prop";
-                mesh.userData.propId = pId;
-                
-                const group = new THREE.Group();
-                group.name = "prop";
-                group.userData.propId = pId;
-                group.add(mesh);
-                scene.add(group);
-
-                const { shape } = generatePropResources(d.type);
-                const body = new CANNON.Body({
-                    mass: d.isPlayerBodyBackup ? 90 : 15,
-                    shape: shape
-                });
-                body.position.set(d.x, d.y, d.z);
-                body.quaternion.set(d.qx, d.qy, d.qz, d.qw);
-                
-                if (d.isFrozen) {
-                    body.type = CANNON.Body.STATIC;
-                }
-
-                world.addBody(body);
-                networkProps[pId] = { mesh: group, body: body, isFrozen: d.isFrozen || false };
-            });
-
-            onChildChanged(propsRef, (snap) => {
-                const pId = snap.key;
-                const d = snap.val();
-                const localProp = networkProps[pId];
-                if (localProp && pId !== grabbedId) {
-                    localProp.body.position.set(d.x, d.y, d.z);
-                    localProp.body.quaternion.set(d.qx, d.qy, d.qz, d.qw);
-                    
-                    if (d.isFrozen && localProp.body.type !== CANNON.Body.STATIC) {
-                        localProp.body.type = CANNON.Body.STATIC;
-                        localProp.isFrozen = true;
-                    } else if (!d.isFrozen && localProp.body.type === CANNON.Body.STATIC) {
-                        localProp.body.type = CANNON.Body.DYNAMIC;
-                        localProp.isFrozen = false;
-                        localProp.body.wakeUp();
-                    }
-                }
-            });
-
-            onChildRemoved(propsRef, (snap) => {
-                const pId = snap.key;
-                if (networkProps[pId]) {
-                    world.removeBody(networkProps[pId].body);
-                    scene.remove(networkProps[pId].mesh);
-                    delete networkProps[pId];
-                }
-            });
-
-            // Rebuild Scoreboard List Layout
-            function rebuildScoreboardUI() {
-                const content = document.getElementById('player-list-content');
-                content.innerHTML = `<div class="player-list-item"><div class="player-info"><div class="status-dot" style="background:#2cbd4b;"></div><span>${username} (You)</span></div></div>`;
-                for (let k in networkPlayers) {
-                    content.innerHTML += `<div class="player-list-item"><div class="player-info"><div class="status-dot" style="background:#2cbd4b;"></div><span>${networkPlayers[k].root.children[2].element.innerText.replace("ADMIN", "")}</span></div></div>`;
-                }
-            }
-            rebuildScoreboardUI();
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('crosshair').style.display = 'block';
+            document.getElementById('instructions').style.display = 'block';
             document.getElementById('player-list-panel').style.display = 'block';
-
-            // Sync Environment configs hooks
-            onValue(envRef, (snap) => {
-                if(snap.exists()) {
-                    const data = snap.val();
-                    if(data.skybox) scene.background.setHex(parseInt(data.skybox));
-                    if(data.ground) groundMesh.material.color.setHex(parseInt(data.ground));
-                }
-            });
-
-            onValue(adminRef, (snap) => {
-                if (snap.exists() && snap.val().action === "clear") {
-                    for(let k in networkProps) {
-                        if(k !== grabbedId) remove(ref(db, `rooms/${roomId}/props/${k}`));
-                    }
-                    set(adminRef, null);
-                }
-            });
+            document.getElementById('hud-tool').style.display = 'block';
+            
+            controls.lock();
+            gameActive = true;
+            resetInputTimer();
         });
 
-        // Setup dropdown dynamic push actions
+        function resetInputTimer() {
+            lastInputTime = Date.now();
+            if (isLocalAfk) {
+                isLocalAfk = false;
+                if(playerRef) update(playerRef, { afk: false });
+            }
+        }
+        window.addEventListener('mousemove', resetInputTimer);
+
+        function setupMultiplayerListeners() {
+            onValue(adminRef, (snapshot) => {
+                if (!snapshot.val()) {
+                    set(adminRef, { id: playerId, name: username });
+                } else if (snapshot.val().id === playerId) {
+                    isAdmin = true;
+                    document.getElementById('admin-panel').style.display = 'block';
+                    document.querySelectorAll('.ban-action').forEach(b => b.style.display = 'inline-block');
+                }
+            });
+
+            onValue(ref(db, `rooms/${roomId}/players`), (snapshot) => {
+                const data = snapshot.val() || {};
+                const listPanel = document.getElementById('player-list-content');
+                listPanel.innerHTML = ""; 
+
+                listPanel.innerHTML += `
+                    <div class="player-list-item">
+                        <div class="player-info"><span class="status-dot" style="background:#21a03c"></span>${username} ${isAdmin ? '(Admin)' : ''} ${isLocalAfk ? '<span class="afk-tag">AFK</span>':''}</div>
+                    </div>`;
+
+                Object.keys(networkPlayers).forEach(id => {
+                    if (!data[id]) {
+                        scene.remove(networkPlayers[id].mesh);
+                        world.removeBody(networkPlayers[id].body);
+                        delete networkPlayers[id];
+                    }
+                });
+
+                Object.keys(data).forEach(id => {
+                    if (id === playerId) return;
+                    const pData = data[id];
+
+                    const pRow = document.createElement('div');
+                    pRow.className = 'player-list-item';
+                    pRow.innerHTML = `
+                        <div class="player-info"><span class="status-dot" style="background:${pData.afk ? '#ff943d':'#2a67bc'}"></span>${pData.name}${pData.isAdminStatus ? ' (Admin)':''}${pData.afk ? '<span class="afk-tag">AFK</span>':''}</div>
+                        <button class="ban-action" style="display: ${isAdmin ? 'inline-block' : 'none'}">BAN</button>
+                    `;
+                    listPanel.appendChild(pRow);
+
+                    // Create or track remote player physics prop structure
+                    if (!networkPlayers[id]) {
+                        const group = new THREE.Group();
+                        const bMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.2, 10), new THREE.MeshStandardMaterial({ color: pData.color || 0xff0000 }));
+                        bMesh.position.y = 0.6; group.add(bMesh);
+                        const hMesh = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+                        hMesh.position.y = 1.35; group.add(hMesh);
+                        const vMesh = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+                        vMesh.position.set(0, 1.35, 0.25); group.add(vMesh);
+
+                        const nameDiv = document.createElement('div');
+                        nameDiv.className = 'username-tag';
+                        nameDiv.innerHTML = `${pData.name}`;
+                        const nameLabel = new CSS2DObject(nameDiv);
+                        nameLabel.position.set(0, 1.9, 0); group.add(nameLabel);
+                        scene.add(group);
+
+                        const pBody = new CANNON.Body({ mass: 0, shape: new CANNON.Cylinder(0.6, 0.6, 1.8, 8) });
+                        world.addBody(pBody);
+
+                        networkPlayers[id] = { mesh: group, body: pBody, baseColor: pData.color };
+                        group.userData.remotePlayerId = id;
+                    }
+
+                    const netObj = networkPlayers[id];
+
+                    // If player is AFK, they undergo dynamic physics updates controlled by room interactions
+                    if (pData.afk) {
+                        netObj.body.type = CANNON.Body.DYNAMIC;
+                        netObj.body.mass = 50;
+                        netObj.body.updateMassProperties();
+                        
+                        if (grabbedObj !== netObj) {
+                            netObj.mesh.position.copy(netObj.body.position);
+                            netObj.mesh.position.y -= 0.9;
+                            netObj.mesh.quaternion.copy(netObj.body.quaternion);
+                        }
+                    } else {
+                        // Regular client sync tracking when active
+                        netObj.body.type = CANNON.Body.STATIC;
+                        netObj.body.mass = 0;
+                        netObj.body.updateMassProperties();
+                        
+                        netObj.body.position.set(pData.x, pData.y - 0.5, pData.z);
+                        netObj.mesh.position.set(pData.x, pData.y - 0.9, pData.z);
+                        if (pData.rotationY !== undefined) netObj.mesh.rotation.y = pData.rotationY;
+                    }
+                });
+            });
+
+            onValue(envRef, (snapshot) => {
+                const env = snapshot.val();
+                if (env) {
+                    if (env.skybox) scene.background.setHex(parseInt(env.skybox));
+                    if (env.ground) groundMat.color.setHex(parseInt(env.ground));
+                }
+            });
+
+            onChildAdded(propsRef, (snapshot) => {
+                createLocalProp(snapshot.key, snapshot.val());
+            });
+
+            onChildRemoved(propsRef, (snapshot) => {
+                const id = snapshot.key;
+                if (props[id]) {
+                    scene.remove(props[id].mesh);
+                    world.removeBody(props[id].body);
+                    delete props[id];
+                }
+            });
+
+            onChildChanged(propsRef, (snapshot) => {
+                const id = snapshot.key;
+                const data = snapshot.val();
+                if (props[id]) {
+                    if (data.color) props[id].mesh.material.color.setHex(data.color);
+                    if (data.frozen) {
+                        props[id].body.mass = 0;
+                        props[id].body.type = CANNON.Body.STATIC;
+                    } else {
+                        props[id].body.mass = 8;
+                        props[id].body.type = CANNON.Body.DYNAMIC;
+                    }
+                    props[id].body.updateMassProperties();
+                    if (grabbedObj !== props[id]) {
+                        props[id].body.position.set(data.x, data.y, data.z);
+                    }
+                }
+            });
+        }
+
         document.getElementById('skybox-select').addEventListener('change', (e) => {
-            if(gameActive) update(envRef, { skybox: e.target.value });
+            if (gameActive) set(ref(db, `rooms/${roomId}/environment/skybox`), e.target.value);
         });
         document.getElementById('ground-select').addEventListener('change', (e) => {
-            if(gameActive) update(envRef, { ground: e.target.value });
+            if (gameActive) set(ref(db, `rooms/${roomId}/environment/ground`), e.target.value);
         });
         document.getElementById('clear-room-btn').addEventListener('click', () => {
-            if(gameActive && isAdmin) set(adminRef, { action: "clear", time: Date.now() });
+            if (isAdmin) remove(propsRef);
         });
 
-        // --- TICK ANIMATE RENDERING INTERPOLATION ENGINE LOOP ---
-        const clock = new THREE.Clock();
+        // --- INPUT EVENT HANDLING ---
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            resetInputTimer();
 
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            const dt = Math.min(clock.getDelta(), 0.1);
-            world.step(dt);
-
-            if (gameActive) {
-                // Apply look updates for mobile constraints manually
-                if(!isMobile && controls.isLocked) {
-                    yaw = camera.rotation.y;
-                    pitch = camera.rotation.x;
+            if (e.code === 'KeyW') moveForward = true;
+            if (e.code === 'KeyS') moveBackward = true;
+            if (e.code === 'KeyA') moveLeft = true;
+            if (e.code === 'KeyD') moveRight = true;
+            if (e.code === 'Space') {
+                if (isFlying) flyUp = true;
+                else if (canJump) { playerBody.velocity.y = 11.5; canJump = false; }
+            }
+            if (e.code === 'ShiftLeft') { if (isFlying) flyDown = true; }
+            if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
+            if (e.code === 'KeyJ') { isThirdPerson = !isThirdPerson; localVisualGroup.visible = isThirdPerson; }
+            if (e.code === 'KeyG') {
+                isFlying = !isFlying;
+                playerBody.velocity.set(0,0,0);
+            }
+            if (e.code === 'KeyF') {
+                if (grabbedObj && !grabIsPlayerId) {
+                    remove(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`));
+                    grabbedObj = null; beamLine.visible = false;
                 }
-
-                // Process active physical physics grab anchor vector positioning transformations
-                if (grabbedId && networkProps[grabbedId]) {
-                    const targetDir = new THREE.Vector3();
-                    camera.getWorldDirection(targetDir);
-                    const holdPos = camera.position.clone().add(targetDir.multiplyScalar(grabDistance));
-                    dummyGrabBody.position.copy(holdPos);
+            }
+            if (e.code === 'KeyZ') {
+                raycaster.setFromCamera(new THREE.Vector2(), camera);
+                const intersects = raycaster.intersectObjects(Object.values(props).map(p => p.mesh), true);
+                if (intersects.length > 0) {
+                    let root = intersects[0].object;
+                    while (root.parent && !root.userData.id) { root = root.parent; }
+                    const pId = root.userData.id;
+                    if (props[pId]) {
+                        update(ref(db, `rooms/${roomId}/props/${pId}`), { frozen: props[pId].body.mass !== 0 });
+                    }
                 }
+            }
+        });
 
-                // Resolve player local walking orientation kinematics vectors
-                const inputX = isMobile ? mobileMoveX : ((moveLeft ? -1 : 0) + (moveRight ? 1 : 0));
-                const inputZ = isMobile ? mobileMoveZ : ((moveForward ? -1 : 0) + (moveBackward ? 1 : 0));
-                const isMoving = Math.abs(inputX) > 0.1 || Math.abs(inputZ) > 0.1;
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'KeyW') moveForward = false;
+            if (e.code === 'KeyS') moveBackward = false;
+            if (e.code === 'KeyA') moveLeft = false;
+            if (e.code === 'KeyD') moveRight = false;
+            if (e.code === 'Space') flyUp = false;
+            if (e.code === 'ShiftLeft') flyDown = false;
+            if (e.code === 'KeyQ') { menu.style.display = 'none'; controls.lock(); }
+        });
 
-                if (isFlying) {
-                    playerBody.useGravity = false;
-                    const camTarget = new THREE.Vector3();
-                    camera.getWorldDirection(camTarget);
-                    
-                    const camRight = new THREE.Vector3();
-                    camRight.crossVectors(camTarget, camera.up).normalize();
+        function createLocalProp(id, data) {
+            if (props[id]) return;
+            let mesh, shape;
+            let size = 1.2;
 
-                    const flyVec = new THREE.Vector3();
-                    flyVec.addScaledVector(camTarget, -inputZ * 12);
-                    flyVec.addScaledVector(camRight, inputX * 12);
-                    
-                    playerBody.velocity.x = flyVec.x;
-                    playerBody.velocity.z = flyVec.z;
-                } else {
-                    playerBody.useGravity = true;
-                    const camTarget = new THREE.Vector3();
-                    camera.getWorldDirection(camTarget);
-                    camTarget.y = 0;
-                    camTarget.normalize();
+            if (data.type === 'cube') { 
+                mesh = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), new THREE.MeshStandardMaterial({ color: data.color || 0xcccccc, roughness: 0.2 }));
+                shape = new CANNON.Box(new CANNON.Vec3(size/2, size/2, size/2)); 
+            } else if (data.type === 'sphere') { 
+                mesh = new THREE.Mesh(new THREE.SphereGeometry(size/2, 16, 16), new THREE.MeshStandardMaterial({ color: data.color || 0xcccccc }));
+                shape = new CANNON.Sphere(size/2); 
+            } else if (data.type === 'cylinder') { 
+                mesh = new THREE.Mesh(new THREE.CylinderGeometry(size/2, size/2, size, 16), new THREE.MeshStandardMaterial({ color: data.color || 0xcccccc }));
+                shape = new CANNON.Cylinder(size/2, size/2, size, 16); 
+            } else { 
+                mesh = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.2, 8, 24), new THREE.MeshStandardMaterial({ color: data.color || 0xcccccc }));
+                shape = new CANNON.Sphere(0.6); 
+            }
 
-                    const camRight = new THREE.Vector3();
-                    camRight.crossVectors(camTarget, camera.up).normalize();
+            mesh.position.set(data.x, data.y, data.z);
+            mesh.userData.id = id;
+            scene.add(mesh);
 
-                    const moveVector = new THREE.Vector3();
-                    moveVector.addScaledVector(camTarget, -inputZ);
-                    moveVector.addScaledVector(camRight, inputX);
-                    if(moveVector.lengthSq() > 0.01) moveVector.normalize();
+            const body = new CANNON.Body({ 
+                mass: data.frozen ? 0 : 8, shape, material: propPhysMat,
+                type: data.frozen ? CANNON.Body.STATIC : CANNON.Body.DYNAMIC 
+            });
+            body.position.set(data.x, data.y, data.z);
+            world.addBody(body);
 
-                    playerBody.velocity.x = moveVector.x * 8.5;
-                    playerBody.velocity.z = moveVector.z * 8.5;
-                }
+            props[id] = { id, mesh, body, type: data.type };
+        }
 
-                // Bind and lock three camera viewpoint relative orientations
-                if (thirdPerson) {
-                    const targetOffset = new THREE.Vector3(0, 1.2, 4.5);
-                    targetOffset.applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
-                    camera.position.copy(playerBody.position).add(targetOffset);
-                    if(!isMobile) camera.lookAt(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
-                } else {
-                    camera.position.copy(playerBody.position);
-                    camera.position.y += 0.55;
-                }
+        // --- GMOD TOOLGUN & INTERACTION CONTROLS ---
+        window.addEventListener('mousedown', (e) => {
+            if (!controls.isLocked || !gameActive) return;
+            resetInputTimer();
 
-                // Update real-time multiplayer network database endpoints
-                if (!isMobile ? controls.isLocked : true) {
-                    set(playerRef, { 
-                        name: username, 
-                        color: avatarColor, 
-                        isAdminStatus: isAdmin,
-                        x: playerBody.position.x, 
-                        y: playerBody.position.y, 
-                        z: playerBody.position.z,
-                        rotationY: yaw,
-                        headPitch: pitch,
-                        headYaw: yaw,
-                        isMovingState: isMoving,
-                        isFlyingState: isFlying
+            // Left Click (Use Selected Tool System)
+            if (e.button === 0) {
+                const targetPos = new THREE.Vector3();
+                camera.getWorldDirection(targetPos).multiplyScalar(5).add(camera.position);
+
+                if (currentToolMode === 'spawn') {
+                    const newId = Math.random().toString(36).substring(2, 9);
+                    set(ref(db, `rooms/${roomId}/props/${newId}`), { 
+                        type: currentPropType, x: targetPos.x, y: targetPos.y, z: targetPos.z, frozen: false, color: Math.floor(Math.random()*16777215)
                     });
+                } else {
+                    // Tool hit logic
+                    raycaster.setFromCamera(new THREE.Vector2(), camera);
+                    const propMeshes = Object.values(props).map(p => p.mesh);
+                    const playerMeshes = Object.values(networkPlayers).map(p => p.mesh);
+                    const intersects = raycaster.intersectObjects([...propMeshes, ...playerMeshes], true);
+
+                    if (intersects.length > 0) {
+                        let hitObj = intersects[0].object;
+                        while(hitObj.parent && !hitObj.userData.id && !hitObj.userData.remotePlayerId) { hitObj = hitObj.parent; }
+
+                        if (currentToolMode === 'remover' && hitObj.userData.id) {
+                            remove(ref(db, `rooms/${roomId}/props/${hitObj.userData.id}`));
+                        } else if (currentToolMode === 'color' && hitObj.userData.id) {
+                            update(ref(db, `rooms/${roomId}/props/${hitObj.userData.id}`), { color: Math.floor(Math.random()*16777215) });
+                        } else if (currentToolMode === 'ignite') {
+                            let fMesh = intersects[0].object;
+                            if(fMesh.material) {
+                                fMesh.material.emissive.setHex(0xff5500);
+                                setTimeout(() => { if(fMesh.material && fMesh.material.emissive) fMesh.material.emissive.setHex(0x000000); }, 3000);
+                            }
+                        }
+                    }
                 }
             }
 
-            // Sync structural dynamic prop configurations mesh components with cannon simulation states
-            for (let k in networkProps) {
-                if (k !== grabbedId && !networkProps[k].isFrozen) {
-                    networkProps[k].mesh.position.copy(networkProps[k].body.position);
-                    networkProps[k].mesh.quaternion.copy(networkProps[k].body.quaternion);
-                } else if(k === grabbedId) {
-                    networkProps[k].mesh.position.copy(networkProps[k].body.position);
-                    networkProps[k].mesh.quaternion.copy(networkProps[k].body.quaternion);
-                    
-                    // Network broadcast pushed stream updates continuously for gripped objects
-                    if(gameActive && Math.random() < 0.25) {
-                        update(ref(db, `rooms/${roomId}/props/${k}`), {
-                            x: networkProps[k].body.position.x,
-                            y: networkProps[k].body.position.y,
-                            z: networkProps[k].body.position.z,
-                            qx: networkProps[k].body.quaternion.x,
-                            qy: networkProps[k].body.quaternion.y,
-                            qz: networkProps[k].body.quaternion.z,
-                            qw: networkProps[k].body.quaternion.w
-                        });
+            // Right Click (Physgun Grab Handling both Props and AFK physics-activated Players)
+            if (e.button === 2) { 
+                raycaster.setFromCamera(new THREE.Vector2(), camera);
+                const propMeshes = Object.values(props).map(p => p.mesh);
+                const playerMeshes = Object.values(networkPlayers).map(p => p.mesh);
+                
+                const intersects = raycaster.intersectObjects([...propMeshes, ...playerMeshes], true);
+                if (intersects.length > 0) {
+                    let hitObject = intersects[0].object;
+                    grabDistance = intersects[0].distance;
+
+                    while (hitObject.parent && !hitObject.userData.id && !hitObject.userData.remotePlayerId) {
+                        hitObject = hitObject.parent;
                     }
+
+                    if (hitObject.userData.id) {
+                        grabbedObj = props[hitObject.userData.id];
+                        grabbedObj.body.mass = 0;
+                        grabbedObj.body.type = CANNON.Body.DYNAMIC;
+                        grabbedObj.body.updateMassProperties();
+                        grabIsPlayerId = null;
+                        lastGrabbedPos.copy(grabbedObj.body.position);
+                    } else if (hitObject.userData.remotePlayerId) {
+                        const rId = hitObject.userData.remotePlayerId;
+                        grabbedObj = networkPlayers[rId];
+                        grabIsPlayerId = rId;
+                        lastGrabbedPos.copy(grabbedObj.body.position);
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (e.button === 2 && grabbedObj) {
+                if (!grabIsPlayerId) {
+                    grabbedObj.body.mass = 8;
+                    grabbedObj.body.updateMassProperties();
+                    grabbedObj.body.velocity.copy(grabbedVelocity).scale(2.2); // Fling scaling force
+                    
+                    update(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
+                        frozen: false, x: grabbedObj.body.position.x, y: grabbedObj.body.position.y, z: grabbedObj.body.position.z
+                    });
+                } else {
+                    grabbedObj.body.velocity.copy(grabbedVelocity).scale(2.5);
+                }
+                grabbedObj = null;
+                beamLine.visible = false;
+            }
+        });
+
+        const clock = new THREE.Clock();
+        let afkTimerCheck = 0;
+
+        // --- MAIN ENGINE ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = Math.min(clock.getDelta(), 0.1);
+
+            if (gameActive) {
+                // AFK engine processing verification
+                afkTimerCheck += delta;
+                if(afkTimerCheck > 1.0) {
+                    afkTimerCheck = 0;
+                    if (Date.now() - lastInputTime > 15000 && !isLocalAfk) {
+                        isLocalAfk = true;
+                        update(playerRef, { afk: true });
+                    }
+                }
+
+                if (!isFlying) {
+                    world.fixedStep();
+                } else {
+                    let flyVec = new THREE.Vector3();
+                    if (moveForward) flyVec.z += 1; if (moveBackward) flyVec.z -= 1;
+                    if (moveLeft) flyVec.x += 1; if (moveRight) flyVec.x -= 1;
+                    flyVec.normalize();
+
+                    const camTarget = new THREE.Vector3(); camera.getWorldDirection(camTarget);
+                    const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize();
+
+                    let moveDir = new THREE.Vector3();
+                    moveDir.addScaledVector(camTarget, flyVec.z);
+                    moveDir.addScaledVector(camRight, flyVec.x);
+                    if (flyUp) moveDir.y += 1; if (flyDown) moveDir.y -= 1;
+
+                    playerBody.position.x += moveDir.x * 22 * delta;
+                    playerBody.position.y += moveDir.y * 22 * delta;
+                    playerBody.position.z += moveDir.z * 22 * delta;
+                    playerBody.velocity.set(0, 0, 0);
+                }
+
+                // Update visual group mapping orientation
+                localVisualGroup.position.copy(playerBody.position);
+                const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir);
+                localVisualGroup.rotation.y = Math.atan2(-camDir.x, -camDir.z);
+
+                if (isThirdPerson) {
+                    const backCamPos = new THREE.Vector3().copy(playerBody.position).add(new THREE.Vector3(0, 0.6, 0));
+                    backCamPos.addScaledVector(camDir, -4.5);
+                    camera.position.copy(backCamPos);
+                } else {
+                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
+                }
+
+                // Raycast grounding jump verification
+                const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
+                const to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.99, playerBody.position.z);
+                const rayResult = new CANNON.RaycastResult();
+                world.raycastClosest(from, to, {}, rayResult);
+                canJump = rayResult.hasHit;
+
+                Object.keys(props).forEach(id => {
+                    props[id].mesh.position.copy(props[id].body.position);
+                    props[id].mesh.quaternion.copy(props[id].body.quaternion);
+                });
+
+                // Physgun execution processing
+                if (grabbedObj) {
+                    const targetPos = new THREE.Vector3();
+                    camera.getWorldDirection(targetPos).multiplyScalar(grabDistance).add(camera.position);
+
+                    grabbedObj.body.position.set(targetPos.x, targetPos.y, targetPos.z);
+                    if (delta > 0) {
+                        grabbedVelocity.set(
+                            (grabbedObj.body.position.x - lastGrabbedPos.x) / delta,
+                            (grabbedObj.body.position.y - lastGrabbedPos.y) / delta,
+                            (grabbedObj.body.position.z - lastGrabbedPos.z) / delta
+                        );
+                    }
+                    grabbedObj.body.velocity.set(0, 0, 0); 
+                    lastGrabbedPos.copy(grabbedObj.body.position);
+
+                    if (!grabIsPlayerId) {
+                        set(ref(db, `rooms/${roomId}/props/${grabbedObj.id}`), {
+                            type: grabbedObj.type, x: targetPos.x, y: targetPos.y, z: targetPos.z, frozen: false
+                        });
+                    } else {
+                        // Push grabbed AFK positions directly to network coordinates 
+                        set(ref(db, `rooms/${roomId}/players/${grabIsPlayerId}/x`), targetPos.x);
+                        set(ref(db, `rooms/${roomId}/players/${grabIsPlayerId}/y`), targetPos.y + 0.5);
+                        set(ref(db, `rooms/${roomId}/players/${grabIsPlayerId}/z`), targetPos.z);
+                    }
+
+                    const positions = beamLine.geometry.attributes.position.array;
+                    positions[0] = camera.position.x; positions[1] = camera.position.y - 0.2; positions[2] = camera.position.z - 0.2;
+                    positions[3] = targetPos.x; positions[4] = targetPos.y; positions[5] = targetPos.z;
+                    beamLine.geometry.attributes.position.needsUpdate = true;
+                    beamLine.visible = true;
+                }
+
+                // Handle basic movement values 
+                if (controls.isLocked && !isFlying) {
+                    let inputZ = Number(moveForward) - Number(moveBackward);
+                    let inputX = Number(moveLeft) - Number(moveRight);
+
+                    const camTarget = new THREE.Vector3(); camera.getWorldDirection(camTarget);
+                    camTarget.y = 0; camTarget.normalize();
+                    const camRight = new THREE.Vector3().crossVectors(camTarget, camera.up).normalize();
+
+                    const moveVector = new THREE.Vector3().addScaledVector(camTarget, inputZ).addScaledVector(camRight, inputX).normalize();
+                    playerBody.velocity.x = moveVector.x * 14.0;
+                    playerBody.velocity.z = moveVector.z * 14.0;
+                }
+
+                if (controls.isLocked) {
+                    set(playerRef, { 
+                        name: username, color: avatarColor, isAdminStatus: isAdmin, afk: isLocalAfk,
+                        x: playerBody.position.x, y: playerBody.position.y + 0.5, z: playerBody.position.z,
+                        rotationY: localVisualGroup.rotation.y
+                    });
                 }
             }
 
@@ -1142,8 +905,7 @@
         animate();
 
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             labelRenderer.setSize(window.innerWidth, window.innerHeight);
         });
