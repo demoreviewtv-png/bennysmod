@@ -308,7 +308,6 @@
 
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
         let flyUp = false, flyDown = false;
-        const inputDirection = new THREE.Vector3();
 
         const raycaster = new THREE.Raycaster();
         let grabbedObj = null; 
@@ -347,7 +346,6 @@
             envRef = ref(db, `rooms/${roomId}/environment`);
             adminRef = ref(db, `rooms/${roomId}/admin`);
 
-            /* FIXED: Cleared faulty onDisconnect().then block */
             onDisconnect(playerRef).remove();
             
             onValue(ref(db, `rooms/${roomId}/players`), (snap) => {
@@ -529,8 +527,12 @@
             if (e.code === 'KeyA') moveLeft = true;
             if (e.code === 'KeyD') moveRight = true;
             if (e.code === 'Space') {
-                if (isFlying) flyUp = true;
-                else if (canJump) { playerBody.velocity.y = 8.5; canJump = false; }
+                if (isFlying) {
+                    flyUp = true;
+                } else if (canJump) { 
+                    playerBody.velocity.y = 10.5; // Responsive, fast sandbox jump force
+                    canJump = false; 
+                }
             }
             if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { if (isFlying) flyDown = true; }
             if (e.code === 'KeyQ') { controls.unlock(); menu.style.display = 'block'; }
@@ -694,7 +696,7 @@
                 if (!isFlying) {
                     world.fixedStep();
                 } else {
-                    const flySpeed = 12;
+                    const flySpeed = 18; // Increased flying speed
                     let flyVec = new THREE.Vector3();
                     if (moveForward) flyVec.z += 1;
                     if (moveBackward) flyVec.z -= 1;
@@ -732,8 +734,9 @@
                     camera.position.set(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
                 }
 
-                const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.91, playerBody.position.z);
-                const to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 1.05, playerBody.position.z);
+                // Check grounding by raycasting downwards relative to player height (1.8m height total, center is at position)
+                const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.9, playerBody.position.z);
+                const to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.98, playerBody.position.z);
                 const rayResult = new CANNON.RaycastResult();
                 world.raycastClosest(from, to, {}, rayResult);
                 canJump = rayResult.hasHit;
@@ -777,24 +780,28 @@
                     beamLine.visible = true;
                 }
 
+                // Handle WASD movement vectors relative to camera looking angle
                 if (controls.isLocked && !isFlying) {
-                    inputDirection.z = Number(moveForward) - Number(moveBackward);
-                    inputDirection.x = Number(moveLeft) - Number(moveRight);
-                    inputDirection.normalize();
+                    const speedMultiplier = 14.0; // Optimized fast walking/running speed setting
+                    
+                    let inputZ = Number(moveForward) - Number(moveBackward);
+                    let inputX = Number(moveLeft) - Number(moveRight);
 
                     const camTarget = new THREE.Vector3();
                     camera.getWorldDirection(camTarget);
-                    camTarget.y = 0; camTarget.normalize();
+                    camTarget.y = 0; 
+                    camTarget.normalize();
 
                     const camRight = new THREE.Vector3();
                     camRight.crossVectors(camTarget, camera.up).normalize();
 
                     const moveVector = new THREE.Vector3();
-                    moveVector.addScaledVector(camTarget, inputDirection.z * 7.5);
-                    moveVector.addScaledVector(camRight, inputDirection.x * 7.5);
+                    moveVector.addScaledVector(camTarget, inputZ);
+                    moveVector.addScaledVector(camRight, inputX);
+                    moveVector.normalize(); // Ensure diagonal movement isn't unintentionally faster
 
-                    playerBody.velocity.x = moveVector.x;
-                    playerBody.velocity.z = moveVector.z;
+                    playerBody.velocity.x = moveVector.x * speedMultiplier;
+                    playerBody.velocity.z = moveVector.z * speedMultiplier;
                 }
 
                 if (controls.isLocked) {
