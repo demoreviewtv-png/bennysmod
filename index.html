@@ -307,7 +307,16 @@
         window.currentSelectedPropType = 'cube';
 
         // Firebase Setup
-        const firebaseConfig = { databaseURL: "https://bennysmod-default-rtdb.firebaseio.com" };
+        const firebaseConfig = {
+            apiKey: "AIzaSyBmHx2iZL0UFgr_d0y0-ENIQQ6EF82XuIs",
+            authDomain: "bennysmod.firebaseapp.com",
+            databaseURL: "https://bennysmod-default-rtdb.firebaseio.com",
+            projectId: "bennysmod",
+            storageBucket: "bennysmod.firebasestorage.app",
+            messagingSenderId: "739121709314",
+            appId: "1:739121709314:web:69323c2e9ebaab911c821b",
+            measurementId: "G-TB8EBLGN6X"
+        };
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
@@ -881,14 +890,27 @@
             frame.addEventListener('touchcancel', clear);
         }
 
-        const clock = new THREE.Clock();
-
         function animate() {
             requestAnimationFrame(animate);
-            const dt = Math.min(clock.getDelta(), 0.1);
 
             if (gameActive) {
-                world.step(dt);
+                // Fixed timestep with sub-stepping: this is cannon-es's recommended way
+                // to step the world. Passing a raw, variable frame-time straight into
+                // world.step() can let fast-moving/low-framerate frames skip clean past
+                // thin collision shapes (like the ground Plane), which is what caused
+                // players to fall through the floor. fixedStep() internally breaks a
+                // long frame into several small, stable physics steps instead.
+                world.fixedStep();
+
+                // Safety net: if the physics body ever goes NaN/Infinite (can happen
+                // after odd collision edge-cases), reset it instead of letting the
+                // corrupted position get broadcast to Firebase, which throws and
+                // crashes the whole page.
+                if (!Number.isFinite(playerBody.position.x) || !Number.isFinite(playerBody.position.y) || !Number.isFinite(playerBody.position.z)) {
+                    playerBody.position.set(0, 5, 0);
+                    playerBody.velocity.set(0, 0, 0);
+                    playerBody.angularVelocity.set(0, 0, 0);
+                }
 
                 let yaw = 0, pitch = 0;
                 if (!isMobileModeActive && controls.isLocked) {
@@ -928,8 +950,10 @@
                 moveVector.addScaledVector(camRight, inputX);
                 if (moveVector.lengthSq() > 0.01) moveVector.normalize();
 
-                playerBody.velocity.x = moveVector.x * 8.0;
-                playerBody.velocity.z = moveVector.z * 8.0;
+                if (Number.isFinite(moveVector.x) && Number.isFinite(moveVector.z)) {
+                    playerBody.velocity.x = moveVector.x * 8.0;
+                    playerBody.velocity.z = moveVector.z * 8.0;
+                }
 
                 // View matrix attachments
                 if (isThirdPerson) {
@@ -943,11 +967,16 @@
 
                 // Network telemetry broadcast
                 if (!isMobileModeActive ? controls.isLocked : true) {
-                    set(playerRef, {
-                        name: username, color: avatarColor, isAdminStatus: isLocalAdmin,
-                        x: playerBody.position.x, y: playerBody.position.y, z: playerBody.position.z,
-                        rotationY: yaw, headPitch: pitch
-                    });
+                    const px = playerBody.position.x, py = playerBody.position.y, pz = playerBody.position.z;
+                    const safeYaw = Number.isFinite(yaw) ? yaw : 0;
+                    const safePitch = Number.isFinite(pitch) ? pitch : 0;
+                    if (Number.isFinite(px) && Number.isFinite(py) && Number.isFinite(pz)) {
+                        set(playerRef, {
+                            name: username, color: avatarColor, isAdminStatus: isLocalAdmin,
+                            x: px, y: py, z: pz,
+                            rotationY: safeYaw, headPitch: safePitch
+                        }).catch((err) => console.warn("Position sync skipped:", err));
+                    }
                 }
             }
 
@@ -961,15 +990,14 @@
                     networkProps[k].mesh.quaternion.copy(networkProps[k].body.quaternion);
                     
                     if (gameActive && Math.random() < 0.25) {
-                        update(ref(db, `rooms/${roomId}/props/${k}`), {
-                            x: networkProps[k].body.position.x,
-                            y: networkProps[k].body.position.y,
-                            z: networkProps[k].body.position.z,
-                            qx: networkProps[k].body.quaternion.x,
-                            qy: networkProps[k].body.quaternion.y,
-                            qz: networkProps[k].body.quaternion.z,
-                            qw: networkProps[k].body.quaternion.w
-                        });
+                        const pb = networkProps[k].body;
+                        const propVals = [pb.position.x, pb.position.y, pb.position.z, pb.quaternion.x, pb.quaternion.y, pb.quaternion.z, pb.quaternion.w];
+                        if (propVals.every(Number.isFinite)) {
+                            update(ref(db, `rooms/${roomId}/props/${k}`), {
+                                x: pb.position.x, y: pb.position.y, z: pb.position.z,
+                                qx: pb.quaternion.x, qy: pb.quaternion.y, qz: pb.quaternion.z, qw: pb.quaternion.w
+                            }).catch((err) => console.warn("Prop sync skipped:", err));
+                        }
                     }
                 }
             }
