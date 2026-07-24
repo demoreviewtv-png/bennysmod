@@ -594,6 +594,14 @@
                         controls.unlock();
                     }
                     if (key === 'j') isThirdPerson = !isThirdPerson;
+
+                    // Space: jump (only when roughly grounded, to prevent mid-air double jumps)
+                    if (key === ' ') {
+                        e.preventDefault(); // stop the page from scrolling on Space
+                        if (gameActive && Math.abs(playerBody.velocity.y) < 0.1) {
+                            playerBody.velocity.y = 8.5;
+                        }
+                    }
                     
                     // "E" deletes held item immediately
                     if (key === 'e' && grabbedId) {
@@ -1008,3 +1016,4 @@
     </script>
 </body>
 </html>
+
