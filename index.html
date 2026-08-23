@@ -78,7 +78,7 @@
 
         .server-list-container { background: rgba(0,0,0,0.75); padding: 25px; border-radius: 12px; border: 1px solid #444; width: 280px; display: flex; flex-direction: column; }
         .server-list { flex: 1; min-height: 150px; background: #1a1a1a; border-radius: 6px; border: 1px solid #333; overflow-y: auto; padding: 5px; margin-top: 8px; }
-        .server-item { padding: 8px; background: #2a2a2a; margin-bottom: 5px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; font-size: 13px; border-left: 3px solid #2a67bc; transition: 0.2s; }
+        .server-item { padding: 8px; background: #2a2a2a; margin-bottom: 5px; border-radius: 4px; cursor: pointer; display: flex; justify-space-between; font-size: 13px; border-left: 3px solid #2a67bc; transition: 0.2s; }
         .server-item:hover { background: #3a3a3a; border-left-color: #21a03c; }
 
         #error-screen { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: #4a1212; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 999; color: white; padding: 20px; text-align: center; }
@@ -277,7 +277,8 @@
         • Right-Click / GRAB: Hold/Drag Physics Objects<br>
         • Hold Right-Click + Press <strong>R</strong>: Open Object Quick Context Menu<br>
         • Press <strong>E</strong>: Delete Grabbed Held Prop Object<br>
-        • J / CAM: Toggle 1st / 3rd Person View
+        • J / CAM: Toggle 1st / 3rd Person View<br>
+        • VR Controller Trigger: Spawn / Grab Objects
     </div>
 
     <script>
@@ -293,6 +294,7 @@
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+        import { VRButton } from 'three/addons/webxr/VRButton.js';
         import * as CANNON from 'cannon-es';
 
         window.switchTab = function(tabName) {
@@ -333,6 +335,10 @@
         let playerBody, activeKeys = {};
         const networkProps = {};
         const networkPlayers = {};
+
+        // VR Controllers
+        let controller1, controller2;
+        let vrTargetRaycaster;
 
         // Object Grab State
         let grabbedId = null;
@@ -406,7 +412,9 @@
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true; // Enable WebXR capabilities
             document.body.appendChild(renderer.domElement);
+            document.body.appendChild(VRButton.createButton(renderer));
 
             labelRenderer = new CSS2DRenderer();
             labelRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -440,6 +448,10 @@
 
             controls = new PointerLockControls(camera, renderer.domElement);
             
+            // Setup VR Controllers
+            vrTargetRaycaster = new THREE.Raycaster();
+            setupVRControllers();
+
             // Firebase setup
             roomRef = ref(db, `rooms/${roomId}`);
             playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
@@ -457,7 +469,87 @@
             setupNetworking(isAdmin);
             setupInputControls();
 
-            animate();
+            // Use setAnimationLoop for WebXR compatibility instead of requestAnimationFrame
+            renderer.setAnimationLoop(animate);
+        }
+
+        function setupVRControllers() {
+            // Controller 1 (Right Hand)
+            controller1 = renderer.xr.getController(0);
+            controller1.addEventListener('selectstart', () => onVRSelectStart(controller1));
+            controller1.addEventListener('selectend', () => onVRSelectEnd());
+            scene.add(controller1);
+
+            // Controller 2 (Left Hand)
+            controller2 = renderer.xr.getController(1);
+            controller2.addEventListener('selectstart', () => onVRSelectStart(controller2));
+            controller2.addEventListener('selectend', () => onVRSelectEnd());
+            scene.add(controller2);
+
+            // Visual rays for controllers
+            const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -5)]);
+            const material = new THREE.LineBasicMaterial({ color: 0x00ffff });
+
+            controller1.add(new THREE.Line(geometry, material));
+            controller2.add(new THREE.Line(geometry, material));
+        }
+
+        function onVRSelectStart(controller) {
+            const tempMatrix = new THREE.Matrix4();
+            tempMatrix.identity().extractRotation(controller.matrixWorld);
+            vrTargetRaycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+            vrTargetRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+            const meshes = Object.values(networkProps).map(p => p.mesh);
+            const intersects = vrTargetRaycaster.intersectObjects(meshes, true);
+
+            if (intersects.length > 0) {
+                let targetMesh = intersects[0].object;
+                while (targetMesh.parent && targetMesh.parent.name === "prop") targetMesh = targetMesh.parent;
+
+                if (targetMesh.userData.propId) {
+                    grabbedId = targetMesh.userData.propId;
+                    grabDistance = intersects[0].distance;
+                    const body = networkProps[grabbedId].body;
+                    body.wakeUp();
+
+                    const localPivot = body.pointToLocalFrame(new CANNON.Vec3(intersects[0].point.x, intersects[0].point.y, intersects[0].point.z));
+                    dummyGrabBody.position.copy(intersects[0].point);
+                    grabConstraint = new CANNON.PointToPointConstraint(body, localPivot, dummyGrabBody, new CANNON.Vec3(0, 0, 0), 1500);
+                    world.addConstraint(grabConstraint);
+
+                    if (body.type === CANNON.Body.STATIC) {
+                        update(ref(db, `rooms/${roomId}/props/${grabbedId}`), { isFrozen: false });
+                    }
+                }
+            } else {
+                handleSpawnActionVR(controller);
+            }
+        }
+
+        function onVRSelectEnd() {
+            releaseGrabbedProp();
+        }
+
+        function handleSpawnActionVR(controller) {
+            const now = performance.now();
+            if (now - lastSpawnTime < SPAWN_COOLDOWN_MS) return;
+            lastSpawnTime = now;
+
+            const tempMatrix = new THREE.Matrix4();
+            tempMatrix.identity().extractRotation(controller.matrixWorld);
+            
+            const dir = new THREE.Vector3(0, 0, -1).applyMatrix4(tempMatrix);
+            const pos = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
+            const targetPos = pos.add(dir.multiplyScalar(3.0));
+
+            const key = "prop_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+            set(ref(db, `rooms/${roomId}/props/${key}`), {
+                type: window.currentSelectedPropType,
+                x: targetPos.x, y: targetPos.y, z: targetPos.z,
+                qx: 0, qy: 0, qz: 0, qw: 1,
+                isFrozen: false
+            });
         }
 
         function setupNetworking(isAdmin) {
@@ -580,7 +672,7 @@
                 document.body.addEventListener('click', () => {
                     const menu = document.getElementById('spawn-menu');
                     const config = document.getElementById('config-menu');
-                    if (gameActive && !controls.isLocked && menu.style.display !== 'block' && config.style.display !== 'block') {
+                    if (gameActive && !controls.isLocked && menu.style.display !== 'block' && config.style.display !== 'block' && !renderer.xr.isPresenting) {
                         controls.lock();
                     }
                 });
@@ -596,9 +688,9 @@
                     }
                     if (key === 'j') isThirdPerson = !isThirdPerson;
 
-                    // Space: jump (only when roughly grounded, to prevent mid-air double jumps)
+                    // Space: jump (only when roughly grounded)
                     if (key === ' ') {
-                        e.preventDefault(); // stop the page from scrolling on Space
+                        e.preventDefault();
                         if (gameActive && Math.abs(playerBody.velocity.y) < 0.1) {
                             playerBody.velocity.y = 8.5;
                         }
@@ -748,7 +840,6 @@
                     grabConstraint = new CANNON.PointToPointConstraint(body, localPivot, dummyGrabBody, new CANNON.Vec3(0, 0, 0), 1500);
                     world.addConstraint(grabConstraint);
                     
-                    // Temporarily unfreeze to move
                     if (body.type === CANNON.Body.STATIC) {
                         update(ref(db, `rooms/${roomId}/props/${grabbedId}`), { isFrozen: false });
                     }
@@ -900,21 +991,9 @@
         }
 
         function animate() {
-            requestAnimationFrame(animate);
-
             if (gameActive) {
-                // Fixed timestep with sub-stepping: this is cannon-es's recommended way
-                // to step the world. Passing a raw, variable frame-time straight into
-                // world.step() can let fast-moving/low-framerate frames skip clean past
-                // thin collision shapes (like the ground Plane), which is what caused
-                // players to fall through the floor. fixedStep() internally breaks a
-                // long frame into several small, stable physics steps instead.
                 world.fixedStep();
 
-                // Safety net: if the physics body ever goes NaN/Infinite (can happen
-                // after odd collision edge-cases), reset it instead of letting the
-                // corrupted position get broadcast to Firebase, which throws and
-                // crashes the whole page.
                 if (!Number.isFinite(playerBody.position.x) || !Number.isFinite(playerBody.position.y) || !Number.isFinite(playerBody.position.z)) {
                     playerBody.position.set(0, 5, 0);
                     playerBody.velocity.set(0, 0, 0);
@@ -964,18 +1043,20 @@
                     playerBody.velocity.z = moveVector.z * 8.0;
                 }
 
-                // View matrix attachments
-                if (isThirdPerson) {
-                    const targetOffset = new THREE.Vector3(0, 1.2, 4.5);
-                    targetOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-                    camera.position.copy(playerBody.position).add(targetOffset);
-                    if (!isMobileModeActive) camera.lookAt(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
-                } else {
-                    camera.position.set(playerBody.position.x, playerBody.position.y + 0.6, playerBody.position.z);
+                // View matrix attachments (skip override if VR headset presenting)
+                if (!renderer.xr.isPresenting) {
+                    if (isThirdPerson) {
+                        const targetOffset = new THREE.Vector3(0, 1.2, 4.5);
+                        targetOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                        camera.position.copy(playerBody.position).add(targetOffset);
+                        if (!isMobileModeActive) camera.lookAt(playerBody.position.x, playerBody.position.y + 0.5, playerBody.position.z);
+                    } else {
+                        camera.position.set(playerBody.position.x, playerBody.position.y + 0.6, playerBody.position.z);
+                    }
                 }
 
                 // Network telemetry broadcast
-                if (!isMobileModeActive ? controls.isLocked : true) {
+                if (renderer.xr.isPresenting || (!isMobileModeActive ? controls.isLocked : true)) {
                     const px = playerBody.position.x, py = playerBody.position.y, pz = playerBody.position.z;
                     const safeYaw = Number.isFinite(yaw) ? yaw : 0;
                     const safePitch = Number.isFinite(pitch) ? pitch : 0;
