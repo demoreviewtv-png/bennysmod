@@ -3,114 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Benny's Mod - Web GMod Sandbox</title>
+    <title>Benny's Mod v2 - Web Physics Sandbox</title>
     <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            user-select: none;
-            background: #000;
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background: #000; user-select: none;
         }
 
-        #canvas-container { width: 100%; height: 100%; }
+        #canvas-container { width: 100%; height: 100%; position: absolute; top:0; left:0; }
 
         /* Crosshair */
         #crosshair {
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 8px; height: 8px;
-            margin: -4px 0 0 -4px;
-            border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.9);
-            border: 1px solid black;
-            pointer-events: none;
-            z-index: 10;
+            position: absolute; top: 50%; left: 50%;
+            width: 8px; height: 8px; margin: -4px 0 0 -4px;
+            border-radius: 50%; background: rgba(255, 255, 255, 0.9);
+            border: 1px solid black; pointer-events: none; z-index: 10;
         }
 
-        /* Overlay Notice */
-        #instructions {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            background: rgba(15, 15, 15, 0.85);
-            padding: 25px;
-            border-radius: 12px;
-            text-align: center;
-            border: 2px solid #007acc;
-            cursor: pointer;
-            z-index: 20;
+        /* Lobby & Start Screen */
+        #lobby-overlay {
+            position: absolute; inset: 0;
+            background: rgba(10, 10, 15, 0.95);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 100;
         }
 
-        /* Persistent Q Menu UI */
+        .card {
+            background: #1a1a24; border: 2px solid #007acc; border-radius: 12px;
+            padding: 30px; width: 420px; color: white; text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+
+        .card h1 { margin-top: 0; color: #00aaff; }
+        .form-group { margin: 15px 0; text-align: left; }
+        .form-group label { display: block; font-size: 0.85rem; color: #aaa; margin-bottom: 5px; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 10px; background: #0f0f15; border: 1px solid #333;
+            color: white; border-radius: 6px; outline: none;
+        }
+
+        .btn {
+            width: 100%; padding: 12px; margin-top: 10px; background: #007acc;
+            color: white; border: none; border-radius: 6px; font-weight: bold;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .btn:hover { background: #0099ff; }
+
+        /* In-Game HUD */
+        #hud {
+            position: absolute; top: 15px; right: 15px;
+            display: flex; gap: 10px; z-index: 10; pointer-events: none;
+        }
+        .hud-badge {
+            background: rgba(0, 0, 0, 0.7); color: #00ffcc; padding: 6px 14px;
+            border-radius: 20px; font-size: 0.85rem; border: 1px solid #00ffcc;
+        }
+
+        /* Spawn Menu (Q Menu) */
         #spawn-menu {
-            position: absolute;
-            top: 20px; left: 20px;
-            width: 380px;
-            max-height: calc(100vh - 40px);
-            background: rgba(20, 20, 20, 0.92);
-            border: 2px solid #007acc;
-            border-radius: 8px;
-            display: none;
-            flex-direction: column;
-            padding: 15px;
-            color: white;
-            z-index: 30;
-            box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.5);
-            overflow-y: auto;
+            position: absolute; top: 20px; left: 20px; width: 380px;
+            max-height: calc(100vh - 40px); background: rgba(18, 18, 24, 0.95);
+            border: 2px solid #007acc; border-radius: 10px; display: none;
+            flex-direction: column; padding: 18px; color: white; z-index: 50;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.6); overflow-y: auto;
         }
 
-        #spawn-menu h2 { margin: 0 0 10px 0; color: #007acc; font-size: 1.2rem; border-bottom: 1px solid #444; padding-bottom: 5px; }
-        #spawn-menu h3 { margin: 10px 0 5px 0; font-size: 0.95rem; color: #ccc; }
+        #spawn-menu h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: #00aaff; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        #spawn-menu h3 { margin: 12px 0 6px 0; font-size: 0.9rem; color: #ddd; }
 
-        .spawn-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-
+        .spawn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         .spawn-btn {
-            background: #333;
-            color: white;
-            border: 1px solid #555;
-            padding: 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            text-align: center;
-            font-size: 0.85rem;
-            transition: background 0.2s;
+            background: #2a2a38; color: white; border: 1px solid #444; padding: 10px;
+            border-radius: 6px; cursor: pointer; text-align: center; font-size: 0.85rem;
+            transition: all 0.2s;
         }
+        .spawn-btn:hover { background: #007acc; border-color: #00aaff; }
 
-        .spawn-btn:hover { background: #007acc; border-color: #0099ff; }
-
-        .map-selector { display: flex; gap: 5px; margin-bottom: 10px; }
-        .map-btn { flex: 1; background: #222; border: 1px solid #444; color: white; padding: 6px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; }
-        .map-btn.active { background: #007acc; }
-
-        .custom-mod-section { display: flex; gap: 5px; margin-top: 5px; }
-        .custom-mod-section input { flex: 1; padding: 6px; background: #222; border: 1px solid #444; color: white; border-radius: 4px; font-size: 0.8rem; }
-        .custom-mod-section button { padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
-
-        #player-count {
-            position: absolute;
-            top: 10px; right: 10px;
-            background: rgba(0,0,0,0.6);
-            color: #00ffcc;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            z-index: 10;
-            border: 1px solid #00ffcc;
-        }
+        .mod-submit { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+        .mod-submit input { padding: 8px; background: #111; border: 1px solid #444; color: white; border-radius: 4px; font-size: 0.8rem; }
     </style>
 
-    <!-- Import Maps & CDNs -->
     <script type="importmap">
         {
             "imports": {
@@ -124,65 +97,75 @@
 <body>
 
     <div id="crosshair"></div>
-    <div id="player-count">Players: 1</div>
 
-    <div id="instructions">
-        <h2>Benny's Mod Sandbox</h2>
-        <p><strong>Click anywhere to play</strong></p>
-        <p><strong>WASD</strong>: Move | <strong>Space</strong>: Jump</p>
-        <p><strong>Left Click</strong>: Grab & Lift Object (Physgun)</p>
-        <p><strong>Scroll Wheel</strong>: Distance Pull / Push</p>
-        <p><strong>Q</strong>: Toggle Spawn Menu</p>
+    <div id="hud">
+        <div id="room-badge" class="hud-badge">Room: Offline</div>
+        <div id="player-badge" class="hud-badge">Players: 1</div>
     </div>
 
-    <!-- Persistent Q Menu -->
+    <!-- Lobby Setup Modal -->
+    <div id="lobby-overlay">
+        <div class="card">
+            <h1>Benny's Mod Sandbox</h1>
+            <div class="form-group">
+                <label>Game Mode / Privacy</label>
+                <select id="room-type" onchange="toggleRoomInput()">
+                    <option value="solo">Solo / Singleplayer</option>
+                    <option value="public">Public Server (Lobby 1)</option>
+                    <option value="private">Private Room (Enter Key)</option>
+                </select>
+            </div>
+            <div class="form-group" id="private-key-group" style="display:none;">
+                <label>Private Room Key</label>
+                <input type="text" id="room-key" placeholder="e.g. benny123">
+            </div>
+            <button class="btn" onclick="joinGame()">Launch Sandbox</button>
+        </div>
+    </div>
+
+    <!-- Persistent Q Spawn Menu -->
     <div id="spawn-menu">
         <h2>Spawn Menu</h2>
         
-        <h3>Select Map</h3>
-        <div class="map-selector">
-            <button class="map-btn active" onclick="changeMap('flatgrass')">Flatgrass</button>
-            <button class="map-btn" onclick="changeMap('construct')">gm_construct</button>
-            <button class="map-btn" onclick="changeMap('warehouse')">Warehouse</button>
+        <h3>Environment</h3>
+        <div class="spawn-grid">
+            <div class="spawn-btn" onclick="changeMap('flatgrass')">Flatgrass</div>
+            <div class="spawn-btn" onclick="changeMap('construct')">gm_construct</div>
+            <div class="spawn-btn" onclick="changeMap('warehouse')">Warehouse</div>
         </div>
 
-        <h3>Primitives</h3>
+        <h3>Basic Primitives</h3>
         <div class="spawn-grid">
             <div class="spawn-btn" onclick="spawnShape('cube')">Wooden Cube</div>
             <div class="spawn-btn" onclick="spawnShape('sphere')">Bouncing Ball</div>
             <div class="spawn-btn" onclick="spawnShape('cylinder')">Metal Barrel</div>
         </div>
 
-        <h3>GMod Model Props</h3>
-        <div class="spawn-grid">
-            <div class="spawn-btn" onclick="spawnModel('duck')">Rubber Duck</div>
-            <div class="spawn-btn" onclick="spawnModel('chair')">Armchair</div>
-            <div class="spawn-btn" onclick="spawnModel('helmet')">Sci-Fi Helmet</div>
-            <div class="spawn-btn" onclick="spawnModel('car')">Toy Buggy</div>
-            <div class="spawn-btn" onclick="spawnModel('lamp')">Street Lamp</div>
-            <div class="spawn-btn" onclick="spawnModel('barramundi')">Traffic Cone</div>
+        <h3>Saved Community Mods</h3>
+        <div id="firebase-mods-list" class="spawn-grid">
+            <!-- Dynamic Props Loaded from Firebase -->
         </div>
 
-        <h3>Custom Mod Loader (.gltf / .glb)</h3>
-        <div class="custom-mod-section">
-            <input type="text" id="mod-url" placeholder="Direct GLB URL (e.g. GitHub Raw)">
-            <button onclick="spawnCustomMod()">Spawn</button>
+        <h3>Save New Mod (Firebase)</h3>
+        <div class="mod-submit">
+            <input type="text" id="mod-title" placeholder="Mod Title (e.g., Race Car)">
+            <input type="text" id="mod-url" placeholder="Direct GLB URL">
+            <button class="btn" style="padding: 8px; margin-top:0;" onclick="submitNewMod()">Save & Add Mod</button>
         </div>
     </div>
 
     <div id="canvas-container"></div>
 
-    <!-- Firebase App Modules -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, onChildAdded, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, onValue, push, onChildAdded, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         import * as THREE from 'three';
         import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import * as CANNON from 'cannon-es';
 
-        // --- Custom Firebase Config ---
+        // --- Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyBmHx2iZL0UFgr_d0y0-ENIQQ6EF82XuIs",
             authDomain: "bennysmod.firebaseapp.com",
@@ -196,18 +179,20 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
+        // --- Room & Player State ---
+        let currentRoom = "solo";
+        let isMultiplayer = false;
         const myPlayerId = 'player_' + Math.floor(Math.random() * 100000);
         const remotePlayers = {};
 
-        // --- Core Engine Variables ---
-        let scene, camera, renderer, world;
-        let controls, playerBody;
+        // --- Three & Cannon Engine Globals ---
+        let scene, camera, renderer, world, controls;
+        let playerBody;
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
         let prevTime = performance.now();
 
         const physicsObjects = {};
         const gltfLoader = new GLTFLoader();
-        let currentMap = 'flatgrass';
         let mapGroup = new THREE.Group();
 
         // Physgun Controls
@@ -216,16 +201,40 @@
         let grabDistance = 6;
         const mouseRaycaster = new THREE.Raycaster();
 
-        const PRESET_MODELS = {
-            duck: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Duck/glTF-Binary/Duck.glb',
-            chair: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenChair/glTF-Binary/SheenChair.glb',
-            helmet: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb',
-            car: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Buggy/glTF-Binary/Buggy.glb',
-            lamp: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BarnLamp/glTF-Binary/BarnLamp.glb',
-            barramundi: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/ToyCar/glTF-Binary/ToyCar.glb'
+        // --- LOBBY ROOM CONTROLLER ---
+        window.toggleRoomInput = function() {
+            const mode = document.getElementById('room-type').value;
+            document.getElementById('private-key-group').style.display = (mode === 'private') ? 'block' : 'none';
         };
 
-        function init() {
+        window.joinGame = function() {
+            const mode = document.getElementById('room-type').value;
+            if (mode === 'solo') {
+                currentRoom = 'offline';
+                isMultiplayer = false;
+            } else if (mode === 'public') {
+                currentRoom = 'public_lobby_1';
+                isMultiplayer = true;
+            } else if (mode === 'private') {
+                const key = document.getElementById('room-key').value.trim();
+                if (!key) return alert('Enter a room key!');
+                currentRoom = 'room_' + key.toLowerCase();
+                isMultiplayer = true;
+            }
+
+            document.getElementById('lobby-overlay').style.display = 'none';
+            document.getElementById('room-badge').innerText = `Room: ${currentRoom.toUpperCase()}`;
+
+            initEngine();
+            setupSavedModsListener();
+
+            if (isMultiplayer) {
+                setupMultiplayerNetwork();
+            }
+        };
+
+        // --- INITIALIZE GAME ---
+        function initEngine() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x7ec0ee);
             scene.fog = new THREE.FogExp2(0x7ec0ee, 0.015);
@@ -246,46 +255,40 @@
             const sun = new THREE.DirectionalLight(0xffffff, 1.2);
             sun.position.set(30, 60, 30);
             sun.castShadow = true;
-            sun.shadow.mapSize.width = 2048;
-            sun.shadow.mapSize.height = 2048;
             scene.add(sun);
 
             scene.add(mapGroup);
             buildMap('flatgrass');
 
+            // Player Capsule Setup
             const playerShape = new CANNON.Sphere(0.8);
             playerBody = new CANNON.Body({ mass: 70, shape: playerShape, fixedRotation: true });
             playerBody.position.set(0, 5, 0);
             world.addBody(playerBody);
 
             controls = new PointerLockControls(camera, document.body);
-            
-            const instructions = document.getElementById('instructions');
-            instructions.addEventListener('click', () => controls.lock());
-            controls.addEventListener('lock', () => instructions.style.display = 'none');
-            controls.addEventListener('unlock', () => {
-                if (document.getElementById('spawn-menu').style.display !== 'flex') {
-                    instructions.style.display = 'block';
+            scene.add(controls.getObject());
+
+            // Click-to-focus fix
+            window.addEventListener('click', () => {
+                const menu = document.getElementById('spawn-menu');
+                if (menu.style.display !== 'flex' && !controls.isLocked) {
+                    controls.lock();
                 }
             });
 
-            scene.add(controls.getObject());
-
-            setupKeyboard();
-            setupMultiplayer();
+            setupInputs();
             window.addEventListener('resize', onWindowResize);
+
+            // Lock Pointer immediately on startup
+            controls.lock();
 
             animate();
         }
 
+        // --- MAP BUILDER ---
         window.changeMap = function(mapType) {
-            currentMap = mapType;
-            document.querySelectorAll('.map-btn').forEach(b => b.classList.remove('active'));
-            if (event) event.target.classList.add('active');
-
-            while(mapGroup.children.length > 0) { 
-                mapGroup.remove(mapGroup.children[0]); 
-            }
+            while(mapGroup.children.length > 0) { mapGroup.remove(mapGroup.children[0]); }
             buildMap(mapType);
         };
 
@@ -295,7 +298,7 @@
             world.addBody(groundBody);
 
             const groundGeo = new THREE.PlaneGeometry(200, 200);
-            const groundMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a });
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
             const groundMesh = new THREE.Mesh(groundGeo, groundMat);
             groundMesh.rotation.x = -Math.PI / 2;
             groundMesh.receiveShadow = true;
@@ -306,48 +309,28 @@
             mapGroup.add(grid);
 
             if (type === 'construct') {
-                createStaticBlock(15, 10, 20, -10, 5, -25, 0x666666);
-                createStaticBlock(20, 25, 20, 25, 12.5, -30, 0x444444);
-                createRamp(10, 1, 15, -10, 2.5, -7.5, Math.PI / 6);
+                createStaticBlock(15, 10, 20, -10, 5, -25, 0x555555);
+                createStaticBlock(20, 25, 20, 25, 12.5, -30, 0x333333);
             } else if (type === 'warehouse') {
                 createStaticBlock(200, 20, 2, 0, 10, -100, 0x222222);
                 createStaticBlock(200, 20, 2, 0, 10, 100, 0x222222);
-                createStaticBlock(2, 20, 200, -100, 10, 0, 0x222222);
-                createStaticBlock(2, 20, 200, 100, 10, 0, 0x222222);
             }
         }
 
         function createStaticBlock(sx, sy, sz, x, y, z, color) {
-            const mesh = new THREE.Mesh(
-                new THREE.BoxGeometry(sx, sy, sz),
-                new THREE.MeshStandardMaterial({ color: color })
-            );
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), new THREE.MeshStandardMaterial({ color: color }));
             mesh.position.set(x, y, z);
             mesh.castShadow = true;
             mesh.receiveShadow = true;
             mapGroup.add(mesh);
 
-            const body = new CANNON.Body({
-                type: CANNON.Body.STATIC,
-                shape: new CANNON.Box(new CANNON.Vec3(sx / 2, sy / 2, sz / 2))
-            });
+            const body = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(sx / 2, sy / 2, sz / 2)) });
             body.position.set(x, y, z);
             world.addBody(body);
         }
 
-        function createRamp(sx, sy, sz, x, y, z, rotX) {
-            const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), new THREE.MeshStandardMaterial({ color: 0x888888 }));
-            mesh.position.set(x, y, z);
-            mesh.rotation.x = rotX;
-            mapGroup.add(mesh);
-
-            const body = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(sx/2, sy/2, sz/2)) });
-            body.position.set(x, y, z);
-            body.quaternion.setFromEuler(rotX, 0, 0);
-            world.addBody(body);
-        }
-
-        function setupKeyboard() {
+        // --- INPUT & POINTER LOCK CONTROL FIX ---
+        function setupInputs() {
             window.addEventListener('keydown', (e) => {
                 if (e.code === 'KeyW') moveForward = true;
                 if (e.code === 'KeyS') moveBackward = true;
@@ -358,10 +341,15 @@
                     canJump = false;
                 }
                 if (e.code === 'KeyQ') {
+                    // Properly toggle menu AND release pointer smoothly
                     const menu = document.getElementById('spawn-menu');
-                    const isVisible = menu.style.display === 'flex';
-                    menu.style.display = isVisible ? 'none' : 'flex';
-                    if (!isVisible) controls.unlock();
+                    if (menu.style.display === 'flex') {
+                        menu.style.display = 'none';
+                        controls.lock();
+                    } else {
+                        menu.style.display = 'flex';
+                        controls.unlock();
+                    }
                 }
             });
 
@@ -384,6 +372,7 @@
             });
         }
 
+        // --- PHYSGUN MECHANICS ---
         function grabObject() {
             mouseRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
             const meshes = Object.values(physicsObjects).map(o => o.mesh);
@@ -415,43 +404,68 @@
                 targetPos.multiplyScalar(grabDistance).add(camera.position);
 
                 body.velocity.set(
-                    (targetPos.x - body.position.x) * 12,
-                    (targetPos.y - body.position.y) * 12,
-                    (targetPos.z - body.position.z) * 12
+                    (targetPos.x - body.position.x) * 14,
+                    (targetPos.y - body.position.y) * 14,
+                    (targetPos.z - body.position.z) * 14
                 );
             }
         }
 
+        // --- FIREBASE MOD SYSTEM ---
+        function setupSavedModsListener() {
+            onValue(ref(db, 'saved_mods'), (snapshot) => {
+                const mods = snapshot.val() || {};
+                const list = document.getElementById('firebase-mods-list');
+                list.innerHTML = '';
+
+                for (let key in mods) {
+                    const mod = mods[key];
+                    const btn = document.createElement('div');
+                    btn.className = 'spawn-btn';
+                    btn.innerText = mod.title || 'Custom Mod';
+                    btn.onclick = () => spawnModelFromUrl(mod.url);
+                    list.appendChild(btn);
+                }
+            });
+        }
+
+        window.submitNewMod = function() {
+            const title = document.getElementById('mod-title').value.trim();
+            const url = document.getElementById('mod-url').value.trim();
+
+            if (!title || !url) return alert('Enter both Title and GLB URL!');
+
+            push(ref(db, 'saved_mods'), {
+                title: title,
+                url: url
+            });
+
+            document.getElementById('mod-title').value = '';
+            document.getElementById('mod-url').value = '';
+            alert('Mod Saved to Firebase!');
+        };
+
+        // --- PROP SPAWNING ---
         window.spawnShape = function(type) {
             const id = 'prop_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-            const spawnPos = getSpawnPos();
-            
-            set(ref(db, 'props/' + id), {
-                type: 'primitive',
-                shape: type,
-                x: spawnPos.x, y: spawnPos.y, z: spawnPos.z
-            });
-        };
+            const pos = getSpawnPos();
 
-        window.spawnModel = function(modelKey) {
-            const url = PRESET_MODELS[modelKey];
-            spawnModelFromUrl(url);
-        };
-
-        window.spawnCustomMod = function() {
-            const url = document.getElementById('mod-url').value;
-            if (url) spawnModelFromUrl(url);
+            if (isMultiplayer) {
+                set(ref(db, `rooms/${currentRoom}/props/${id}`), { type: 'primitive', shape: type, x: pos.x, y: pos.y, z: pos.z });
+            } else {
+                createLocalPrimitive(id, type, pos.x, pos.y, pos.z);
+            }
         };
 
         function spawnModelFromUrl(url) {
             const id = 'prop_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-            const spawnPos = getSpawnPos();
+            const pos = getSpawnPos();
 
-            set(ref(db, 'props/' + id), {
-                type: 'model',
-                url: url,
-                x: spawnPos.x, y: spawnPos.y, z: spawnPos.z
-            });
+            if (isMultiplayer) {
+                set(ref(db, `rooms/${currentRoom}/props/${id}`), { type: 'model', url: url, x: pos.x, y: pos.y, z: pos.z });
+            } else {
+                createLocalModel(id, url, pos.x, pos.y, pos.z);
+            }
         }
 
         function getSpawnPos() {
@@ -460,20 +474,22 @@
             return pos.multiplyScalar(5).add(camera.position);
         }
 
-        function setupMultiplayer() {
-            const playerRef = ref(db, 'players/' + myPlayerId);
+        // --- MULTIPLAYER ROOM ENGINE ---
+        function setupMultiplayerNetwork() {
+            const playerRef = ref(db, `rooms/${currentRoom}/players/${myPlayerId}`);
             onDisconnect(playerRef).remove();
 
-            onValue(ref(db, 'players'), (snapshot) => {
+            onValue(ref(db, `rooms/${currentRoom}/players`), (snapshot) => {
                 const players = snapshot.val() || {};
-                document.getElementById('player-count').innerText = `Players: ${Object.keys(players).length}`;
+                document.getElementById('player-badge').innerText = `Players: ${Object.keys(players).length}`;
 
                 for (let id in players) {
                     if (id !== myPlayerId) {
                         if (!remotePlayers[id]) {
-                            const pGeo = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
-                            const pMat = new THREE.MeshStandardMaterial({ color: 0xff0055 });
-                            const pMesh = new THREE.Mesh(pGeo, pMat);
+                            const pMesh = new THREE.Mesh(
+                                new THREE.CapsuleGeometry(0.5, 1, 4, 8),
+                                new THREE.MeshStandardMaterial({ color: 0xff0055 })
+                            );
                             scene.add(pMesh);
                             remotePlayers[id] = pMesh;
                         }
@@ -489,13 +505,12 @@
                 }
             });
 
-            onChildAdded(ref(db, 'props'), (snapshot) => {
+            onChildAdded(ref(db, `rooms/${currentRoom}/props`), (snapshot) => {
                 const data = snapshot.val();
                 const id = snapshot.key;
-                if (data.type === 'primitive') {
-                    createLocalPrimitive(id, data.shape, data.x, data.y, data.z);
-                } else if (data.type === 'model') {
-                    createLocalModel(id, data.url, data.x, data.y, data.z);
+                if (!physicsObjects[id]) {
+                    if (data.type === 'primitive') createLocalPrimitive(id, data.shape, data.x, data.y, data.z);
+                    if (data.type === 'model') createLocalModel(id, data.url, data.x, data.y, data.z);
                 }
             });
         }
@@ -528,7 +543,6 @@
                 const model = gltf.scene;
                 model.position.set(x, y, z);
                 model.userData.id = id;
-
                 model.traverse(c => { if(c.isMesh) c.castShadow = true; });
 
                 const box = new THREE.Box3().setFromObject(model);
@@ -553,6 +567,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
+        // --- ANIMATION ENGINE LOOP ---
         function animate() {
             requestAnimationFrame(animate);
 
@@ -583,11 +598,13 @@
                 camera.position.copy(playerBody.position);
                 camera.position.y += 0.8;
 
-                set(ref(db, 'players/' + myPlayerId), {
-                    x: playerBody.position.x,
-                    y: playerBody.position.y,
-                    z: playerBody.position.z
-                });
+                if (isMultiplayer) {
+                    set(ref(db, `rooms/${currentRoom}/players/${myPlayerId}`), {
+                        x: playerBody.position.x,
+                        y: playerBody.position.y,
+                        z: playerBody.position.z
+                    });
+                }
             }
 
             updatePhysgun();
@@ -600,8 +617,6 @@
 
             renderer.render(scene, camera);
         }
-
-        window.onload = init;
     </script>
 </body>
 </html>
