@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Benny's Mod v2 - Web Physics Sandbox</title>
+    <title>Benny's Mod Sandbox</title>
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
         body, html {
@@ -329,7 +329,7 @@
             world.addBody(body);
         }
 
-        // --- INPUT & POINTER LOCK CONTROL FIX ---
+        // --- INPUT & POINTER LOCK CONTROL ---
         function setupInputs() {
             window.addEventListener('keydown', (e) => {
                 if (e.code === 'KeyW') moveForward = true;
@@ -341,7 +341,6 @@
                     canJump = false;
                 }
                 if (e.code === 'KeyQ') {
-                    // Properly toggle menu AND release pointer smoothly
                     const menu = document.getElementById('spawn-menu');
                     if (menu.style.display === 'flex') {
                         menu.style.display = 'none';
@@ -567,7 +566,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // --- ANIMATION ENGINE LOOP ---
+        // --- ANIMATION ENGINE LOOP (CAMERA-RELATIVE WASD) ---
         function animate() {
             requestAnimationFrame(animate);
 
@@ -579,19 +578,35 @@
 
             if (controls.isLocked) {
                 const speed = 25.0;
+
+                // 1. Calculate local movement input
                 const inputVector = new THREE.Vector3();
-
-                if (moveForward) inputVector.z -= 1;
+                if (moveForward)  inputVector.z -= 1;
                 if (moveBackward) inputVector.z += 1;
-                if (moveLeft) inputVector.x -= 1;
-                if (moveRight) inputVector.x += 1;
-                inputVector.normalize();
+                if (moveLeft)     inputVector.x -= 1;
+                if (moveRight)    inputVector.x += 1;
 
-                const yawEuler = new THREE.Euler(0, camera.rotation.y, 0, 'YXZ');
-                inputVector.applyEuler(yawEuler);
+                if (inputVector.lengthSq() > 0) {
+                    inputVector.normalize();
 
-                playerBody.velocity.x = inputVector.x * speed;
-                playerBody.velocity.z = inputVector.z * speed;
+                    // 2. Derive camera yaw direction angle
+                    const cameraDirection = new THREE.Vector3();
+                    camera.getWorldDirection(cameraDirection);
+                    const yawAngle = Math.atan2(cameraDirection.x, cameraDirection.z);
+
+                    // 3. Transform inputs relative to camera orientation
+                    const worldMoveVector = new THREE.Vector3(
+                        inputVector.x * Math.cos(yawAngle) + inputVector.z * Math.sin(yawAngle),
+                        0,
+                        -inputVector.x * Math.sin(yawAngle) + inputVector.z * Math.cos(yawAngle)
+                    );
+
+                    playerBody.velocity.x = worldMoveVector.x * speed;
+                    playerBody.velocity.z = worldMoveVector.z * speed;
+                } else {
+                    playerBody.velocity.x = 0;
+                    playerBody.velocity.z = 0;
+                }
 
                 if (Math.abs(playerBody.velocity.y) < 0.05) canJump = true;
 
